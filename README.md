@@ -2,12 +2,14 @@
 
 [![skills.sh](https://skills.sh/b/amrtawfik160/bb-orchestration-skills)](https://skills.sh/amrtawfik160/bb-orchestration-skills)
 
-I wanted fresh context without an agent swarm. These two skills keep a BB build
-serial. One worker gets one job, then hands the work to a new thread.
+These skills are built for [Matt Pocock's agent skills](https://github.com/mattpocock/skills).
+They orchestrate his `/to-spec`, `/to-tickets`, `/implement`, `/tdd`, and
+`/code-review` flow inside BB. They do not replace those skills.
 
-Implementation happens in a fresh thread. Review happens in another. A fixer
-handles every finding, then a new reviewer checks the whole diff from the
-original base. The loop stops only when Standards and Spec both report zero.
+I wanted fresh context without an agent swarm. One worker gets one job, then
+hands the work to a new thread. Fixes share one worktree, and each new reviewer
+checks the whole diff from the original base. The loop stops only when
+Standards and Spec both report zero.
 
 ## Skills
 
@@ -33,9 +35,11 @@ one pinned base until both review axes are clean.
 ## Requirements
 
 - `bb` on `PATH` and a BB project thread.
-- The `bb-cli`, `implement`, `tdd`, and `code-review` skills.
-- A configured issue tracker when the input comes from `/to-spec` or
-  `/to-tickets`.
+- The `bb-cli` skill.
+- [Matt Pocock's skills](https://github.com/mattpocock/skills), including
+  `implement`, `tdd`, and `code-review`.
+- `/to-spec` and `/to-tickets` when using the full planning flow.
+- A configured issue tracker through `/setup-matt-pocock-skills`.
 
 ## Install
 
