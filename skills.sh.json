@@ -1,0 +1,14 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "BB orchestration",
+      "description": "Serial implementation and review workflows for BB.",
+      "skills": [
+        "orchestrate-implementation",
+        "review-fix-loop"
+      ]
+    }
+  ]
+}
