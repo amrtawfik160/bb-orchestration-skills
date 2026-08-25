@@ -1,6 +1,6 @@
 # bb orchestration skills
 
-[![skills.sh](https://skills.sh/b/amrtawfik160/bb-orchestration-skills)](https://skills.sh/amrtawfik160/bb-orchestration-skills)
+[![Install from skills.sh](https://img.shields.io/badge/skills.sh-install-111827?style=flat-square)](https://skills.sh/amrtawfik160/bb-orchestration-skills)
 
 These skills are built for [Matt Pocock's agent skills](https://github.com/mattpocock/skills).
 They orchestrate his `/to-spec`, `/to-tickets`, `/implement`, `/tdd`, and
