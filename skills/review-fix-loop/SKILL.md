@@ -1,131 +1,108 @@
 ---
 name: review-fix-loop
-description: "Review and fix a committed diff in fresh BB threads, stopping safely when findings stop converging."
+description: "Use when a committed diff needs one fresh BB code review, fixes for confirmed findings, and bounded closure verification."
 argument-hint: "<fixed-point> [spec or ticket reference]"
 disable-model-invocation: true
 ---
 
 # Review Fix Loop
 
-Orchestrate one serial loop:
-
 ```text
-review -> pass -> finish
-       -> fix -> re-review
-       -> non-converging -> diagnose -> pause
+review once -> no findings -> finish
+            -> findings -> verify -> fix -> verify closure -> finish or pause
 ```
 
-Use `bb-cli`, `code-review`, `implement`, `tdd`, and `diagnosing-bugs` for their
-own procedures. This skill supplies only BB coordination and convergence gates.
+## Contract
 
-## Rules
-
-- Keep one worker active at most. Every review, fix, re-review, and diagnosis
-  gets a fresh spawned thread in one cumulative environment.
-- BB pins skill revisions per environment. Start the orchestrator in a new
-  environment after installing or updating this skill.
-- Spawn; never fork or reuse. Workers work alone and create no descendants or
-  background work.
-- Pin one review-base. Reviews are read-only; fixes are committed, validated,
-  and clean. A dirty run environment pauses.
-- Before review, split a diff above 25 changed files or 2,000 changed lines
-  unless the user explicitly keeps it whole.
-- Push, PR, merge, deploy, archive, and cleanup are separate requests.
+- Keep one orchestrator-spawned BB worker active. `/code-review` may create its
+  required Standards and Spec subagents; those subagents create no descendants.
+- Give every review, finding check, fix, and closure check a fresh spawned
+  thread in one cumulative environment. Never fork or reuse a worker.
+- Pin one immutable review base. Reviews and checks are read-only; fixes commit,
+  validate, and leave the tree clean.
+- Push, PR, merge, deploy, archive, and cleanup require separate requests.
 
 ## Prepare
 
-1. Resolve the project, provider, branch, `initial-head`, fixed point, Spec,
-   standards, and tracker configuration. Pin
-   `review-base = merge-base(fixed-point, initial-head)` and require a non-empty
-   committed diff.
-2. Freeze mutable inputs as hashed BB attachments outside the repository. Use
-   committed bytes for clean committed inputs.
-3. Reuse a clean source environment. Otherwise create one managed worktree
-   from `initial-head`, excluding source-checkout dirt. Require a committed
-   baseline for code included in the review.
-4. Verify required skills in the chosen provider and run environment, then
-   record a resumable ledger under `$BB_THREAD_STORAGE`.
+1. Use `bb-cli` to resolve the project, provider, environment, branch,
+   `initial-head`, fixed point, Spec, standards, and tracker configuration.
+   Require a clean committed diff and pin
+   `review-base = merge-base(fixed-point, initial-head)`.
+2. Snapshot the Spec or ticket once for every worker. Under
+   `$BB_THREAD_STORAGE`, record bases, worker IDs, states, and finding
+   dispositions after each transition. On resume, reconcile that ledger with
+   BB and Git before taking one next transition.
+3. Reuse a clean environment or create one managed worktree at `initial-head`,
+   leaving unrelated source-checkout changes untouched.
+4. Verify `bb-cli`, `tdd`, and `code-review` for the selected provider and
+   environment. Spawn with explicit project, parent, environment, provider,
+   attachments, and JSON output.
 
-Before every spawn, require the prior worker to be idle. Waiting is bounded
-observation: use `bb thread wait <id> --timeout 60 --json`. After each timeout,
-record a **heartbeat** from status, latest event sequence, interactions, Git
-state, descendants, and background work. Any change resets the stale count.
+If no Spec exists, get the user's approval for a Standards-only run before
+spawning. Report Spec as skipped; never call that a two-axis pass.
 
-Five consecutive timeouts without a heartbeat is a stall. Inspect show,
-output, the paged log, interactions, and topology. Honor a user stop or pending
-question. Otherwise send one corrective `tell`; if the next sample is
-unchanged, pause and report. If the user asked only to wait, do not `tell`,
-stop, or spawn. Pause and report the stall. Do not issue another wait until the
-user resumes.
+## Wait for workers
 
-After each worker, inspect its report, Git state, and topology. Reject a phase
-that violated the rules.
+Use `bb thread wait <id> --timeout 1200 --json`. A timeout means the worker is
+not idle yet; it is not a failed phase. Compare work status, latest event
+sequence, interactions, and Git state. Progress starts another wait. After two
+unchanged windows, inspect the log and pending interactions, then send one
+`tell` asking for status. One more unchanged window pauses the run. A user stop
+or pending question pauses immediately. Never spawn the next worker before the
+current one is idle and inspected.
 
 ## Worker prompts
 
-Attach sources; never paste their contents or restate a skill.
+Attach sources instead of pasting or restating them.
 
 Review:
 
 ```text
-/code-review <base> <spec>
-Work alone; run Standards then Spec sequentially; create no descendants.
-Keep the tree unchanged. End with stable finding IDs and REVIEW_GATE.
+/code-review <base>
+Spec: <attached spec or ticket; omit for approved Standards-only>.
+Add to both axis briefs: "Do not invoke /code-review or spawn additional agents; perform this review directly."
+Keep the worktree unchanged.
 ```
 
-On re-review, add only:
+Finding check:
 
 ```text
-Verify the attached findings first, then review the whole diff. Reuse IDs when
-the root cause repeats. Mark unrelated improvements FOLLOW_UP.
+Verify each attached finding against its cited source and <base>...HEAD.
+Assign <axis>-<n> IDs; return CONFIRMED or DISPUTED with evidence. Keep the worktree unchanged.
 ```
 
 Fix:
 
 ```text
-/implement
-Fix the attached findings with `/tdd` where useful. Work alone; create no descendants.
-Stop before built-in review. Commit, leave clean, and report validation.
+Fix only the attached confirmed findings.
+Use /tdd for behavioral fixes only at attached pre-agreed seams. Commit cleanly and report validation.
 ```
 
-Diagnosis:
+Closure check:
 
 ```text
-/diagnosing-bugs
-Explain why the attached finding history is not converging. Work alone; make no changes.
-Recommend the smallest next unit of work.
+Check each attached confirmed finding against <base>...HEAD after the fix.
+Return RESOLVED or OPEN with evidence; keep the worktree unchanged.
 ```
 
 ## Gates
 
-Every review covers `review-base...HEAD`, stays read-only, and ends with:
+Run `/code-review review-base` once. Preserve its separate Standards and Spec
+reports. If both axes report zero findings, finish. For an approved
+Standards-only run, finish only when Standards reports zero and keep Spec
+explicitly skipped.
 
-```yaml
-REVIEW_GATE:
-  standards_findings: <integer>
-  spec_findings: <integer>
-  total_findings: <integer>
-  verdict: PASS|CHANGES_REQUESTED
-```
+Otherwise, use a fresh finding checker to verify every citation. Fix only
+confirmed findings. If none are confirmed, finish with that evidence. Before
+each fix, capture `fix-base = HEAD`; a real fix advances from it.
 
-Verify each cited rule or requirement before fixing it. Track unrelated scope
-as a ticket labeled `FOLLOW_UP`; do not count it as a blocking finding.
-
-For a fix, capture `fix-base = HEAD`. Accepted findings must produce a commit
-with `fix-base` as ancestor; all-disputed findings must leave `HEAD` unchanged
-and include evidence. Every fix gets a fresh holistic review from the original
-review-base.
-
-At most three review attempts are allowed. Compare normalized root causes, not
-wording or counts; key each by axis, citation, code locus, and failure. Spawn
-one fresh diagnosis worker when a root cause repeats, two consecutive reviews
-do not reduce blocking findings, or the third review still has findings. After
-diagnosis, pause and report; diagnosis does not reset the review budget.
-
-Finish only after a fresh review reports zero Standards and zero Spec findings.
+Use a fresh closure checker after each fix. Do not rerun `/code-review` to
+chase a clean report: the skill is nondeterministic and does not promise
+convergence. Finish when no confirmed finding remains OPEN. Allow at most two
+fix attempts, then pause with the evidence.
 
 ## Finish
 
-Report the environment, branch, review-base, initial and final `HEAD`, ordered
-worker IDs, fix commits, validations, review count, final gate, follow-ups, and
-any diagnosis.
+Report the environment, branch, review base, initial and final `HEAD`, worker
+IDs, fix commits, validation, per-axis review counts, finding dispositions, and
+any unresolved evidence.

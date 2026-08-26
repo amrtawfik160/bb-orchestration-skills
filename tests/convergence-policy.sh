@@ -5,26 +5,22 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 failed=0
 
-require_text() {
+require_pattern() {
   local file=$1
-  local expected=$2
-  local normalized
+  local pattern=$2
 
-  normalized=$(tr '\n' ' ' <"$file" | tr -s '[:space:]' ' ')
-  if [[ $normalized != *"$expected"* ]]; then
-    printf 'FAIL %s: missing %s\n' "${file#"$repo_root"/}" "$expected"
+  if ! grep -Eq -- "$pattern" "$file"; then
+    printf 'FAIL %s: missing contract /%s/\n' "${file#"$repo_root"/}" "$pattern"
     failed=1
   fi
 }
 
-reject_text() {
+reject_pattern() {
   local file=$1
-  local rejected=$2
-  local normalized
+  local pattern=$2
 
-  normalized=$(tr '\n' ' ' <"$file" | tr -s '[:space:]' ' ')
-  if [[ $normalized == *"$rejected"* ]]; then
-    printf 'FAIL %s: contains obsolete policy %s\n' "${file#"$repo_root"/}" "$rejected"
+  if grep -Eq -- "$pattern" "$file"; then
+    printf 'FAIL %s: obsolete contract /%s/\n' "${file#"$repo_root"/}" "$pattern"
     failed=1
   fi
 }
@@ -35,7 +31,7 @@ check_prompt_size() {
 
   while read -r block_lines; do
     if (( block_lines > 4 )); then
-      printf 'FAIL %s: worker prompt has %s lines\n' \
+      printf 'FAIL %s: worker prompt has %s non-empty lines\n' \
         "${file#"$repo_root"/}" "$block_lines"
       failed=1
     fi
@@ -54,35 +50,50 @@ for skill in \
   "$repo_root/skills/orchestrate-implementation/SKILL.md" \
   "$repo_root/skills/review-fix-loop/SKILL.md"
 do
-  require_text "$skill" 'At most three review attempts'
-  require_text "$skill" 'two consecutive reviews do not reduce'
-  require_text "$skill" 'root cause repeats'
-  require_text "$skill" 'one fresh diagnosis worker'
-  require_text "$skill" 'FOLLOW_UP'
-  require_text "$skill" 'A dirty run environment pauses'
-  require_text "$skill" 'BB pins skill revisions per environment'
-  require_text "$skill" 'Attach sources; never paste their contents or restate a skill'
-  require_text "$skill" '/code-review <base> <spec>'
-  require_text "$skill" 'Work alone; run Standards then Spec sequentially; create no descendants.'
-  reject_text "$skill" 'Repeat until `0`, `0`, `0`, `PASS`'
-  reject_text "$skill" 'never waive them or impose a retry limit'
+  require_pattern "$skill" 'one orchestrator-spawned BB worker'
+  require_pattern "$skill" 'required Standards and Spec subagents'
+  require_pattern "$skill" 'Do not invoke /code-review or spawn additional agents'
+  require_pattern "$skill" '^/code-review <base>$'
+  require_pattern "$skill" '^##? Finding check|^Finding check:'
+  require_pattern "$skill" 'CONFIRMED or DISPUTED'
+  require_pattern "$skill" '^##? Closure check|^Closure check:'
+  require_pattern "$skill" 'RESOLVED or OPEN'
+  require_pattern "$skill" 'pre-agreed seams'
+  require_pattern "$skill" 'Allow at most two'
+  require_pattern "$skill" 'Do not rerun|instead of rerunning'
+
+  reject_pattern "$skill" '/diagnosing-bugs'
+  reject_pattern "$skill" 'REVIEW_GATE'
+  reject_pattern "$skill" '/code-review <base> <spec>'
+  reject_pattern "$skill" 'Standards then Spec sequentially'
+  reject_pattern "$skill" 'At most three review attempts'
+  reject_pattern "$skill" 'Fix the attached findings with `/tdd` where useful'
+
   check_prompt_size "$skill"
 
   lines=$(wc -l <"$skill")
-  if (( lines > 150 )); then
+  if (( lines > 130 )); then
     printf 'FAIL %s: %s lines exceeds compactness budget\n' \
       "${skill#"$repo_root"/}" "$lines"
     failed=1
   fi
 done
 
-require_text "$repo_root/skills/orchestrate-implementation/SKILL.md" '/implement <unit>'
-require_text "$repo_root/skills/orchestrate-implementation/SKILL.md" 'Stop before its built-in review.'
-require_text "$repo_root/skills/review-fix-loop/SKILL.md" '/implement'
-require_text "$repo_root/skills/review-fix-loop/SKILL.md" 'Fix the attached findings with `/tdd` where useful.'
+orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
+loop="$repo_root/skills/review-fix-loop/SKILL.md"
+
+require_pattern "$orchestrator" '^/implement <full ticket or spec reference>$'
+require_pattern "$orchestrator" 'already sized for one fresh context'
+require_pattern "$orchestrator" 'mark it complete through the'
+require_pattern "$orchestrator" 'leave the parent Spec unchanged'
+reject_pattern "$orchestrator" '25 changed files|2,000 changed lines'
+
+reject_pattern "$loop" '^/implement'
+require_pattern "$loop" 'Standards-only run'
+require_pattern "$loop" 'never call that a two-axis pass'
 
 if (( failed )); then
   exit 1
 fi
 
-echo 'PASS review loops are bounded and worker prompts are compact'
+echo 'PASS Matt skill contracts are composed without an unbounded review loop'

@@ -5,28 +5,24 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 failed=0
 
-require_text() {
+require_pattern() {
   local file=$1
-  local text=$2
-  local normalized
+  local pattern=$2
 
-  normalized=$(tr '\n' ' ' <"$file" | tr -s '[:space:]' ' ')
-
-  if [[ $normalized != *"$text"* ]]; then
-    printf 'FAIL %s: missing %s\n' "${file#"$repo_root"/}" "$text"
+  if ! grep -Eq -- "$pattern" "$file"; then
+    printf 'FAIL %s: missing wait contract /%s/\n' \
+      "${file#"$repo_root"/}" "$pattern"
     failed=1
   fi
 }
 
-reject_text() {
+reject_pattern() {
   local file=$1
-  local text=$2
-  local normalized
+  local pattern=$2
 
-  normalized=$(tr '\n' ' ' <"$file" | tr -s '[:space:]' ' ')
-
-  if [[ $normalized == *"$text"* ]]; then
-    printf 'FAIL %s: contains obsolete policy %s\n' "${file#"$repo_root"/}" "$text"
+  if grep -Eq -- "$pattern" "$file"; then
+    printf 'FAIL %s: obsolete wait contract /%s/\n' \
+      "${file#"$repo_root"/}" "$pattern"
     failed=1
   fi
 }
@@ -35,21 +31,24 @@ for skill in \
   "$repo_root/skills/orchestrate-implementation/SKILL.md" \
   "$repo_root/skills/review-fix-loop/SKILL.md"
 do
-  require_text "$skill" 'bb thread wait <id> --timeout 60 --json'
-  require_text "$skill" 'Waiting is bounded observation'
-  require_text "$skill" 'heartbeat'
-  require_text "$skill" 'Five consecutive timeouts'
-  require_text "$skill" 'one corrective `tell`'
-  require_text "$skill" 'asked only to wait'
-  require_text "$skill" 'Do not issue another wait until the user resumes'
-  require_text "$skill" 'pause and report'
-  reject_text "$skill" 'A timeout keeps waiting'
-  reject_text "$skill" '--timeout 600'
-  reject_text "$skill" '--timeout 3600'
+  require_pattern "$skill" 'bb thread wait <id> --timeout 1200 --json'
+  require_pattern "$skill" 'timeout means the worker is'
+  require_pattern "$skill" 'not a failed phase'
+  require_pattern "$skill" 'latest event'
+  require_pattern "$skill" 'After two'
+  require_pattern "$skill" 'send one'
+  require_pattern "$skill" 'One more unchanged window pauses'
+  require_pattern "$skill" 'user stop'
+  require_pattern "$skill" 'pending question'
+  require_pattern "$skill" 'Never spawn the next worker before the'
+
+  reject_pattern "$skill" '--timeout 60'
+  reject_pattern "$skill" 'Five consecutive timeouts'
+  reject_pattern "$skill" 'Do not issue another wait until the user resumes'
 done
 
 if (( failed )); then
   exit 1
 fi
 
-echo 'PASS wait policy is bounded, observable, and recoverable'
+echo 'PASS timeouts are observations and stalled workers pause after one recovery'

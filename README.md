@@ -6,36 +6,44 @@ These skills are built for [Matt Pocock's agent skills](https://github.com/mattp
 They orchestrate his `/to-spec`, `/to-tickets`, `/implement`, `/tdd`, and
 `/code-review` flow inside BB. They do not replace those skills.
 
-I wanted fresh context without an agent swarm. One worker gets one job, then
-hands the work to a new thread. Fixes share one worktree, and each new reviewer
-checks the whole diff from the original base. A clean review advances the run.
-If findings repeat or do not decrease, the orchestrator diagnoses the cause
-once and pauses for a human decision. Each gate allows at most three reviews.
+The BB workflow stays serial: one worker gets one job, then hands the shared
+worktree to a fresh thread. Matt's `/code-review` is the sole exception inside
+that worker; it uses its required independent Standards and Spec subagents.
 
-![BB orchestration workflow: implement, review, fix findings, and re-review in fresh threads sharing one worktree.](assets/bb-orchestration-workflow.png)
+Each gate runs one holistic review. Its findings are hypotheses, so a fresh
+worker verifies their citations before a fixer acts. Another fresh worker then
+checks that every confirmed finding is closed. The workflow does not rerun
+`/code-review` until it happens to return zero; its own guide warns that repeated
+reviews are nondeterministic and do not promise convergence.
+
+![BB orchestration workflow: implement, review once, verify findings, fix, and verify closure in fresh threads sharing one worktree.](assets/bb-orchestration-workflow-v2.png)
 
 ## Skills
 
 ### `orchestrate-implementation`
 
 Takes a spec or ordered tickets. It implements one unit at a time, reviews it,
-fixes verified findings, and runs a final integration review.
+fixes confirmed findings, updates the ticket, and runs one final integration
+review after a multi-ticket build.
 
 ### `review-fix-loop`
 
-Starts with an existing committed diff. It reviews and fixes from one pinned
-base until the review is clean or the run pauses for a human decision.
+Starts with an existing committed diff. It runs one two-axis review from a
+pinned base, fixes confirmed findings, and verifies their closure.
 
 ## What they enforce
 
 - One active worker at a time.
-- A fresh BB thread for every implementation, review, fix, and re-review.
+- A fresh BB thread for every implementation, review, finding check, fix, and
+  closure check.
 - One shared worktree, so accepted commits remain visible to later workers.
 - A clean managed worktree when the source checkout has unrelated changes.
-- Standards first, then Spec, in one reviewer with no child agents.
-- Re-review from the original base after every fix.
-- At most three reviews per gate; repeated root causes trigger diagnosis and a
-  pause instead of an infinite loop.
+- Matt's separate Standards and Spec reviewers, with a guard against recursive
+  agent spawning.
+- One holistic review per gate, followed by targeted evidence and closure
+  checks. At most two fix attempts are allowed.
+- One approved tracer-bullet ticket per `/implement` thread, with the parent
+  Spec left unchanged.
 - Small worker prompts that invoke Matt's skills and attach source material.
 
 ## Requirements
@@ -43,9 +51,14 @@ base until the review is clean or the run pauses for a human decision.
 - `bb` on `PATH` and a BB project thread.
 - The `bb-cli` skill.
 - [Matt Pocock's skills](https://github.com/mattpocock/skills), including
-  `implement`, `tdd`, `code-review`, and `diagnosing-bugs`.
+  `implement`, `tdd`, and `code-review`.
 - `/to-spec` and `/to-tickets` when using the full planning flow.
 - A configured issue tracker through `/setup-matt-pocock-skills`.
+
+`/to-spec`, `/to-tickets`, `/implement`, and `/ask-matt` are user-invoked.
+The orchestrator consumes approved planning artifacts and gives each spawned BB
+thread its own slash-command prompt; it does not model-invoke those skills in
+the orchestrator's context. `/ask-matt` remains a router, not a workflow step.
 
 ## Install
 
