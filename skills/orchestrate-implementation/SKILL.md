@@ -1,6 +1,6 @@
 ---
 name: orchestrate-implementation
-description: "Implement a spec or ordered tickets serially in fresh BB threads, fixing and re-reviewing each unit until Standards and Spec both report zero."
+description: "Serially implement specs or tickets in fresh BB threads; fix and re-review until both axes reach zero."
 argument-hint: "<spec, ticket set, or ordered ticket references>"
 disable-model-invocation: true
 ---
@@ -60,10 +60,20 @@ Keep a ledger under `$BB_THREAD_STORAGE` with frozen inputs, graph, environment,
 run/unit bases, phase, workers, commits, validations, findings, and gates.
 Reconcile it with BB and Git on resume.
 
-Before each spawn, require the previous worker to be idle. After it finishes,
-inspect its output, Git state, and BB topology. Accept it only if it ran alone
-and left no descendants or background work. A timeout keeps waiting; an
-intentional user stop pauses the run.
+Before each spawn, require the previous worker to be idle. Waiting is bounded
+observation: use `bb thread wait <id> --timeout 60 --json`. After each timeout,
+record a **heartbeat** from its status, latest event sequence, interactions,
+Git state, descendants, and background work. Any change resets the stale count.
+
+Five consecutive timeouts without a heartbeat is a stall; never lengthen the
+wait. Inspect show, output, the paged log, interactions, and topology. Honor a
+user stop or pending question. Otherwise send one corrective `tell` to the same
+worker; if the next sample is unchanged, pause and report. If the user asked
+only to wait, that forbids `tell`, stop, or spawn—not heartbeat checks. Pause
+and report the stall. Do not issue another wait until the user resumes.
+
+After a worker becomes idle, inspect its output, Git state, and BB topology.
+Accept it only if it ran alone and left no descendants or background work.
 
 ## Run each unit
 

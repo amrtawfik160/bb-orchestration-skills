@@ -1,6 +1,6 @@
 ---
 name: review-fix-loop
-description: "Review a committed diff, fix every finding, and re-review in fresh BB threads until Standards and Spec both report zero."
+description: "Review and fix a committed diff in fresh BB threads until both axes reach zero."
 argument-hint: "<fixed-point> [spec or ticket reference]"
 disable-model-invocation: true
 ---
@@ -53,10 +53,20 @@ Use `bb-cli` for BB operations and `code-review` for the review rubric.
 Keep a ledger under `$BB_THREAD_STORAGE` with the pinned inputs, environment,
 SHAs, phase, workers, commits, and gates. Reconcile it with BB and Git on resume.
 
-Before each spawn, require the previous worker to be idle. After it finishes,
-inspect its output, Git state, and BB topology. Accept it only if it ran alone
-and left no descendants or background work. A timeout keeps waiting; an
-intentional user stop pauses the run.
+Before each spawn, require the previous worker to be idle. Waiting is bounded
+observation: use `bb thread wait <id> --timeout 60 --json`. After each timeout,
+record a **heartbeat** from its status, latest event sequence, interactions,
+Git state, descendants, and background work. Any change resets the stale count.
+
+Five consecutive timeouts without a heartbeat is a stall; never lengthen the
+wait. Inspect show, output, the paged log, interactions, and topology. Honor a
+user stop or pending question. Otherwise send one corrective `tell` to the same
+worker; if the next sample is unchanged, pause and report. If the user asked
+only to wait, that forbids `tell`, stop, or spawn—not heartbeat checks. Pause
+and report the stall. Do not issue another wait until the user resumes.
+
+After a worker becomes idle, inspect its output, Git state, and BB topology.
+Accept it only if it ran alone and left no descendants or background work.
 
 ## Loop
 
