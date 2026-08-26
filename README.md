@@ -11,6 +11,8 @@ hands the work to a new thread. Fixes share one worktree, and each new reviewer
 checks the whole diff from the original base. The loop stops only when
 Standards and Spec both report zero.
 
+![BB orchestration workflow: implement, review, fix findings, and re-review in fresh threads sharing one worktree.](assets/bb-orchestration-workflow.png)
+
 ## Skills
 
 ### `orchestrate-implementation`
