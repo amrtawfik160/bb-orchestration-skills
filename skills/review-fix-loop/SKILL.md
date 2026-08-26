@@ -1,80 +1,104 @@
 ---
 name: review-fix-loop
-description: "Review and fix a committed diff in fresh BB threads until both axes reach zero."
+description: "Review and fix a committed diff in fresh BB threads, stopping safely when findings stop converging."
 argument-hint: "<fixed-point> [spec or ticket reference]"
 disable-model-invocation: true
 ---
 
 # Review Fix Loop
 
-Orchestrate this serial loop in BB:
+Orchestrate one serial loop:
 
 ```text
-review (Standards -> Spec) -> findings -> fix -> fresh review
-                           -> 0 + 0 ----------------> finish
+review -> pass -> finish
+       -> fix -> re-review
+       -> non-converging -> diagnose -> pause
 ```
 
-Use `bb-cli` for BB operations and `code-review` for the review rubric.
+Use `bb-cli`, `code-review`, `implement`, `tdd`, and `diagnosing-bugs` for their
+own procedures. This skill supplies only BB coordination and convergence gates.
 
 ## Rules
 
-- Keep one worker active at most. Every review and fix gets a fresh spawned
-  thread, parented to this orchestrator, in one cumulative run environment.
-- Never fork or reuse a worker. Workers act directly: no subagents, delegation,
-  worker-created threads, or background agents.
-- Pin one review-base. Every review covers `review-base...HEAD`, including all
-  fixes.
-- Reviews are read-only. Fixes are committed, validated, and clean.
-- One reviewer performs Standards first and Spec second, sequentially. This
-  overrides `code-review`'s parallel step.
-- Finish only on a fresh review with zero findings on both axes.
-- Do not push, open or merge PRs, deploy, archive, or clean up unless separately
-  asked.
+- Keep one worker active at most. Every review, fix, re-review, and diagnosis
+  gets a fresh spawned thread in one cumulative environment.
+- BB pins skill revisions per environment. Start the orchestrator in a new
+  environment after installing or updating this skill.
+- Spawn; never fork or reuse. Workers work alone and create no descendants or
+  background work.
+- Pin one review-base. Reviews are read-only; fixes are committed, validated,
+  and clean. A dirty run environment pauses.
+- Before review, split a diff above 25 changed files or 2,000 changed lines
+  unless the user explicitly keeps it whole.
+- Push, PR, merge, deploy, archive, and cleanup are separate requests.
 
 ## Prepare
 
-1. Inspect BB and Git state. Resolve the fixed point from the argument or the
-   immediately preceding `/code-review`, then pin `initial-head` and
-   `review-base = merge-base(fixed-point, initial-head)`. Require a non-empty,
+1. Resolve the project, provider, branch, `initial-head`, fixed point, Spec,
+   standards, and tracker configuration. Pin
+   `review-base = merge-base(fixed-point, initial-head)` and require a non-empty
    committed diff.
-2. Resolve and read the Spec using `code-review`'s lookup order. If the issue
-   tracker is not configured, request `/setup-matt-pocock-skills`. A preceding
-   review report is context only, never an accepted loop iteration.
-3. Freeze mutable Specs, tickets, standards, tracker configuration, and agent
-   instructions as hashed BB attachments outside the repo. Use committed bytes
-   for clean committed inputs.
-4. Reuse the source environment only when clean. Otherwise create one managed
-   BB worktree from `initial-head`, leave the source checkout untouched, and
-   use that environment for the whole loop. Uncommitted code is excluded; if
-   the user wants it reviewed, require a committed baseline.
-5. Pin one provider and verify the run environment has `bb-cli`, `code-review`,
-   and `tdd`.
+2. Freeze mutable inputs as hashed BB attachments outside the repository. Use
+   committed bytes for clean committed inputs.
+3. Reuse a clean source environment. Otherwise create one managed worktree
+   from `initial-head`, excluding source-checkout dirt. Require a committed
+   baseline for code included in the review.
+4. Verify required skills in the chosen provider and run environment, then
+   record a resumable ledger under `$BB_THREAD_STORAGE`.
 
-Keep a ledger under `$BB_THREAD_STORAGE` with the pinned inputs, environment,
-SHAs, phase, workers, commits, and gates. Reconcile it with BB and Git on resume.
-
-Before each spawn, require the previous worker to be idle. Waiting is bounded
+Before every spawn, require the prior worker to be idle. Waiting is bounded
 observation: use `bb thread wait <id> --timeout 60 --json`. After each timeout,
-record a **heartbeat** from its status, latest event sequence, interactions,
-Git state, descendants, and background work. Any change resets the stale count.
+record a **heartbeat** from status, latest event sequence, interactions, Git
+state, descendants, and background work. Any change resets the stale count.
 
-Five consecutive timeouts without a heartbeat is a stall; never lengthen the
-wait. Inspect show, output, the paged log, interactions, and topology. Honor a
-user stop or pending question. Otherwise send one corrective `tell` to the same
-worker; if the next sample is unchanged, pause and report. If the user asked
-only to wait, that forbids `tell`, stop, or spawn—not heartbeat checks. Pause
-and report the stall. Do not issue another wait until the user resumes.
+Five consecutive timeouts without a heartbeat is a stall. Inspect show,
+output, the paged log, interactions, and topology. Honor a user stop or pending
+question. Otherwise send one corrective `tell`; if the next sample is
+unchanged, pause and report. If the user asked only to wait, do not `tell`,
+stop, or spawn. Pause and report the stall. Do not issue another wait until the
+user resumes.
 
-After a worker becomes idle, inspect its output, Git state, and BB topology.
-Accept it only if it ran alone and left no descendants or background work.
+After each worker, inspect its report, Git state, and topology. Reject a phase
+that violated the rules.
 
-## Loop
+## Worker prompts
 
-### Review
+Attach sources; never paste their contents or restate a skill.
 
-Capture `review-start = HEAD` and spawn a fresh read-only reviewer. Give it the
-review-base and frozen Spec. Require every finding to include an ID, axis,
-location, evidence, and fix, followed by:
+Review:
+
+```text
+/code-review <base> <spec>
+Work alone; run Standards then Spec sequentially; create no descendants.
+Keep the tree unchanged. End with stable finding IDs and REVIEW_GATE.
+```
+
+On re-review, add only:
+
+```text
+Verify the attached findings first, then review the whole diff. Reuse IDs when
+the root cause repeats. Mark unrelated improvements FOLLOW_UP.
+```
+
+Fix:
+
+```text
+/implement
+Fix the attached findings with `/tdd` where useful. Work alone; create no descendants.
+Stop before built-in review. Commit, leave clean, and report validation.
+```
+
+Diagnosis:
+
+```text
+/diagnosing-bugs
+Explain why the attached finding history is not converging. Work alone; make no changes.
+Recommend the smallest next unit of work.
+```
+
+## Gates
+
+Every review covers `review-base...HEAD`, stays read-only, and ends with:
 
 ```yaml
 REVIEW_GATE:
@@ -84,30 +108,24 @@ REVIEW_GATE:
   verdict: PASS|CHANGES_REQUESTED
 ```
 
-Counts must match the listed findings and their sum. Accept the review only if
-`HEAD` still equals `review-start`, the tree is clean, and the worker rules
-held. Attributable uncommitted review edits may be restored by that reviewer,
-but discard its report and review fresh. A staged or committed review pauses
-the run; do not rewrite history.
+Verify each cited rule or requirement before fixing it. Track unrelated scope
+as a ticket labeled `FOLLOW_UP`; do not count it as a blocking finding.
 
-If the gate is `0`, `0`, `0`, `PASS`, finish. Otherwise fix.
+For a fix, capture `fix-base = HEAD`. Accepted findings must produce a commit
+with `fix-base` as ancestor; all-disputed findings must leave `HEAD` unchanged
+and include evidence. Every fix gets a fresh holistic review from the original
+review-base.
 
-### Fix
+At most three review attempts are allowed. Compare normalized root causes, not
+wording or counts; key each by axis, citation, code locus, and failure. Spawn
+one fresh diagnosis worker when a root cause repeats, two consecutive reviews
+do not reduce blocking findings, or the third review still has findings. After
+diagnosis, pause and report; diagnosis does not reset the review budget.
 
-Capture `fix-base = HEAD` and spawn a fresh fixer with the complete review and
-frozen inputs. It addresses every finding, uses `/tdd` for behavioral changes
-where appropriate, validates, and leaves the tree clean.
-
-- If any finding is accepted, require a commit after `fix-base`, with
-  `fix-base` still its ancestor.
-- If all findings are disputed, require `HEAD = fix-base` and evidence for each
-  dispute.
-
-Re-review in a fresh thread from the original review-base. Do not pass it the
-previous verdict. Persisting findings become diagnosis work for the next fresh
-fixer; never waive them or impose a retry limit while safe progress remains.
+Finish only after a fresh review reports zero Standards and zero Spec findings.
 
 ## Finish
 
-Report the run environment and branch, review-base, initial and final `HEAD`,
-ordered worker IDs, fix commits, validations, loop count, and final gate.
+Report the environment, branch, review-base, initial and final `HEAD`, ordered
+worker IDs, fix commits, validations, review count, final gate, follow-ups, and
+any diagnosis.
