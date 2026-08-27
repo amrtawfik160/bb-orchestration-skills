@@ -2,6 +2,7 @@
 
 set -euo pipefail
 
+# Regression: #937 needed progressing fixes beyond the old two-attempt limit.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 failed=0
 
@@ -58,15 +59,22 @@ do
   require_pattern "$skill" 'CONFIRMED or DISPUTED'
   require_pattern "$skill" '^##? Closure check|^Closure check:'
   require_pattern "$skill" 'RESOLVED or OPEN'
+  require_pattern "$skill" 'CONFIRMED_FIX_REGRESSION'
+  require_pattern "$skill" 'regressions caused by the fix'
   require_pattern "$skill" 'pre-agreed seams'
-  require_pattern "$skill" 'Allow at most two'
+  require_pattern "$skill" 'open root causes'
+  require_pattern "$skill" 'best-burden'
+  require_pattern "$skill" 'strictly decreases'
+  require_pattern "$skill" 'one recovery'
+  require_pattern "$skill" 'same root cause'
   require_pattern "$skill" 'Do not rerun|instead of rerunning'
 
-  reject_pattern "$skill" '/diagnosing-bugs'
   reject_pattern "$skill" 'REVIEW_GATE'
   reject_pattern "$skill" '/code-review <base> <spec>'
   reject_pattern "$skill" 'Standards then Spec sequentially'
   reject_pattern "$skill" 'At most three review attempts'
+  reject_pattern "$skill" 'Allow at most two'
+  reject_pattern "$skill" 'two fix attempts'
   reject_pattern "$skill" 'Fix the attached findings with `/tdd` where useful'
 
   check_prompt_size "$skill"
@@ -83,12 +91,21 @@ orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
 loop="$repo_root/skills/review-fix-loop/SKILL.md"
 
 require_pattern "$orchestrator" '^/implement <full ticket or spec reference>$'
+require_pattern "$orchestrator" '^/diagnosing-bugs$'
+require_pattern "$orchestrator" 'Route by uncertainty'
+require_pattern "$orchestrator" 'tight, red-capable command'
+require_pattern "$orchestrator" '/improve-codebase-architecture'
+require_pattern "$orchestrator" 'raw.*bug.*triage|triage.*raw.*bug'
 require_pattern "$orchestrator" 'already sized for one fresh context'
+require_pattern "$orchestrator" 'missing edges or cycles'
+require_pattern "$orchestrator" 'frontier is empty'
+require_pattern "$orchestrator" 'stalled behavioral defect.*diagnosing-bugs|diagnosing-bugs.*stalled behavioral defect'
 require_pattern "$orchestrator" 'mark it complete through the'
 require_pattern "$orchestrator" 'leave the parent Spec unchanged'
 reject_pattern "$orchestrator" '25 changed files|2,000 changed lines'
 
 reject_pattern "$loop" '^/implement'
+require_pattern "$loop" 'stalled behavioral defect.*diagnosing-bugs|diagnosing-bugs.*stalled behavioral defect'
 require_pattern "$loop" 'Standards-only run'
 require_pattern "$loop" 'never call that a two-axis pass'
 

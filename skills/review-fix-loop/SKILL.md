@@ -68,7 +68,7 @@ Finding check:
 
 ```text
 Verify each attached finding against its cited source and <base>...HEAD.
-Assign <axis>-<n> IDs; return CONFIRMED or DISPUTED with evidence. Keep the worktree unchanged.
+Consolidate the same root cause under one stable <axis>-<n> ID; return CONFIRMED or DISPUTED with evidence. Keep the worktree unchanged.
 ```
 
 Fix:
@@ -81,8 +81,15 @@ Use /tdd for behavioral fixes only at attached pre-agreed seams. Commit cleanly 
 Closure check:
 
 ```text
-Check each attached confirmed finding against <base>...HEAD after the fix.
-Return RESOLVED or OPEN with evidence; keep the worktree unchanged.
+Check the complete attached finding ledger and <fix-base>...HEAD. Reuse IDs for the same root cause. Return RESOLVED or OPEN; label only regressions caused by the fix CONFIRMED_FIX_REGRESSION.
+Keep the worktree unchanged.
+```
+
+Recovery:
+
+```text
+Recover the attached stalled root causes. For a stalled behavioral defect use /diagnosing-bugs and its tight red loop; otherwise correct the cited root directly.
+Commit cleanly and report validation.
 ```
 
 ## Gates
@@ -96,10 +103,12 @@ Otherwise, use a fresh finding checker to verify every citation. Fix only
 confirmed findings. If none are confirmed, finish with that evidence. Before
 each fix, capture `fix-base = HEAD`; a real fix advances from it.
 
-Use a fresh closure checker after each fix. Do not rerun `/code-review` to
-chase a clean report: the skill is nondeterministic and does not promise
-convergence. Finish when no confirmed finding remains OPEN. Allow at most two
-fix attempts, then pause with the evidence.
+After verification, set `best-burden` to the number of distinct open root causes.
+A fresh closure checker checks the complete ledger and fix delta. Finish at zero.
+A result below `best-burden` becomes the new best and continues; `best-burden` strictly decreases. Otherwise allow one recovery for that plateau.
+A stalled behavioral defect uses `/diagnosing-bugs`; other roots get direct
+correction. Recovery must fall below the unchanged `best-burden`; otherwise
+pause with the same root cause evidence. There is no attempt counter. Do not rerun `/code-review`: it is nondeterministic and does not promise convergence.
 
 ## Finish
 
