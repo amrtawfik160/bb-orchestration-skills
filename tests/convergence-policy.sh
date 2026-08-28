@@ -47,36 +47,14 @@ check_prompt_size() {
   )
 }
 
-for skill in \
-  "$repo_root/skills/orchestrate-implementation/SKILL.md" \
-  "$repo_root/skills/review-fix-loop/SKILL.md"
-do
-  require_pattern "$skill" 'one orchestrator-spawned BB worker'
-  require_pattern "$skill" 'required Standards and Spec subagents'
-  require_pattern "$skill" 'Do not invoke /code-review or spawn additional agents'
-  require_pattern "$skill" '^/code-review <base>$'
-  require_pattern "$skill" '^##? Finding check|^Finding check:'
-  require_pattern "$skill" 'CONFIRMED or DISPUTED'
-  require_pattern "$skill" '^##? Closure check|^Closure check:'
-  require_pattern "$skill" 'RESOLVED or OPEN'
-  require_pattern "$skill" 'CONFIRMED_FIX_REGRESSION'
-  require_pattern "$skill" 'regressions caused by the fix'
-  require_pattern "$skill" 'pre-agreed seams'
-  require_pattern "$skill" 'open root causes'
-  require_pattern "$skill" 'best-burden'
-  require_pattern "$skill" 'strictly decreases'
-  require_pattern "$skill" 'one recovery'
-  require_pattern "$skill" 'same root cause'
-  require_pattern "$skill" 'Do not rerun|instead of rerunning'
+orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
+loop="$repo_root/skills/review-fix-loop/SKILL.md"
 
-  reject_pattern "$skill" 'REVIEW_GATE'
-  reject_pattern "$skill" '/code-review <base> <spec>'
-  reject_pattern "$skill" 'Standards then Spec sequentially'
+for skill in "$orchestrator" "$loop"; do
+  require_pattern "$skill" 'required Standards and Spec subagents'
   reject_pattern "$skill" 'At most three review attempts'
   reject_pattern "$skill" 'Allow at most two'
   reject_pattern "$skill" 'two fix attempts'
-  reject_pattern "$skill" 'Fix the attached findings with `/tdd` where useful'
-
   check_prompt_size "$skill"
 
   lines=$(wc -l <"$skill")
@@ -87,30 +65,43 @@ do
   fi
 done
 
-orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
-loop="$repo_root/skills/review-fix-loop/SKILL.md"
+require_pattern "$loop" 'one orchestrator-spawned BB worker'
+require_pattern "$loop" 'Do not invoke /code-review or spawn additional agents'
+require_pattern "$loop" '^/code-review <base>$'
+require_pattern "$loop" 'CONFIRMED or DISPUTED'
+require_pattern "$loop" 'RESOLVED or OPEN'
+require_pattern "$loop" 'CONFIRMED_FIX_REGRESSION'
+require_pattern "$loop" 'pre-agreed seams'
+require_pattern "$loop" 'open root causes'
+require_pattern "$loop" 'best-burden'
+require_pattern "$loop" 'strictly decreases'
+require_pattern "$loop" 'one recovery'
+require_pattern "$loop" 'same root cause'
+require_pattern "$loop" 'Do not rerun'
+require_pattern "$loop" '^LOOP_GATE:'
+require_pattern "$loop" 'verdict: PASS \| PASS_STANDARDS_ONLY \| PAUSED'
+reject_pattern "$loop" 'REVIEW_GATE'
+reject_pattern "$loop" '/code-review <base> <spec>'
+reject_pattern "$loop" 'Standards then Spec sequentially'
 
-require_pattern "$orchestrator" '^/implement <full ticket or spec reference>$'
+require_pattern "$orchestrator" '^/implement <attached full ticket>$'
 require_pattern "$orchestrator" '^/diagnosing-bugs$'
-require_pattern "$orchestrator" 'Route by uncertainty'
-require_pattern "$orchestrator" 'tight, red-capable command'
+require_pattern "$orchestrator" 'Apply `review-fix-loop` directly in this orchestrator'
+require_pattern "$orchestrator" 'spawn a loop coordinator'
+require_pattern "$orchestrator" '^/pr-writer$'
+require_pattern "$orchestrator" 'LOOP_GATE\.verdict: PASS'
+require_pattern "$orchestrator" 'tight red reproduction'
 require_pattern "$orchestrator" '/improve-codebase-architecture'
-require_pattern "$orchestrator" 'raw.*bug.*triage|triage.*raw.*bug'
-require_pattern "$orchestrator" 'already sized for one fresh context'
-require_pattern "$orchestrator" 'missing edges or cycles'
-require_pattern "$orchestrator" 'frontier is empty'
-require_pattern "$orchestrator" 'stalled behavioral defect.*diagnosing-bugs|diagnosing-bugs.*stalled behavioral defect'
-require_pattern "$orchestrator" 'mark it complete through the'
+require_pattern "$orchestrator" 'raw bugs.*triage|triage.*raw bugs'
+require_pattern "$orchestrator" 'missing edges, or cycles'
+require_pattern "$orchestrator" 'first ready ticket'
 require_pattern "$orchestrator" 'leave the parent Spec unchanged'
+reject_pattern "$orchestrator" 'final integration gate|one integration gate'
 reject_pattern "$orchestrator" '25 changed files|2,000 changed lines'
-
-reject_pattern "$loop" '^/implement'
-require_pattern "$loop" 'stalled behavioral defect.*diagnosing-bugs|diagnosing-bugs.*stalled behavioral defect'
-require_pattern "$loop" 'Standards-only run'
-require_pattern "$loop" 'never call that a two-axis pass'
+reject_pattern "$loop" '^disable-model-invocation: true$'
 
 if (( failed )); then
   exit 1
 fi
 
-echo 'PASS Matt skill contracts are composed without an unbounded review loop'
+echo 'PASS Matt skill contracts compose one review-fix gate per ticket'

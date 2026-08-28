@@ -1,128 +1,125 @@
 ---
 name: orchestrate-implementation
-description: "Run an approved ticket graph serially in fresh BB threads, routing hard bugs through diagnosis and closing confirmed review findings."
+description: "Run an approved ticket graph serially in fresh BB threads and open one reviewed pull request per ticket."
 argument-hint: "<spec, ticket set, or ticket references>"
 disable-model-invocation: true
 ---
 
 # Orchestrate Implementation
 
-Run Matt Pocock's approved planning output: route each ready ticket, review it
-once, close confirmed findings, then finish with one integration gate.
+Run Matt Pocock's `/to-spec` and `/to-tickets` output. One ticket owns one
+branch, one BB environment, one review-fix gate, and one pull request.
 
-`/to-spec` and `/to-tickets` produce the approved artifacts. Their tickets are
-already sized for one fresh context. Send raw bugs through `/triage` first.
+Send raw bugs through `/triage` first. If a bare Spec needs several contexts,
+pause and ask the user to run `/to-tickets`.
 
 ## Contract
 
-- Keep ticket work serial: one orchestrator-spawned BB worker is active at a
-  time. `/code-review` may create its required Standards and Spec subagents;
-  they create no descendants.
-- Spawn a fresh thread for every implementation, diagnosis, review, finding
-  check, fix, and closure check. Reuse one cumulative environment; never fork.
-- Give each implementation or diagnosis worker one full ticket. If a bare Spec
-  needs several contexts, pause and ask the user to run `/to-tickets`.
-- Pin `run-base` and each `unit-base`. Mutating workers commit and leave a clean
-  tree; reviewers and checkers preserve `HEAD` and the tree.
-- Push, PR, merge, deploy, archive, and cleanup require separate requests.
+- Keep work serial. One orchestrator worker is active at a time;
+  `/code-review` may create only its required Standards and Spec subagents.
+- Use a fresh thread for implementation, diagnosis, each review-fix phase, and
+  PR writing. Apply `review-fix-loop` in this orchestrator so it spawns only
+  those phase workers. One ticket shares one environment; the next gets a new
+  branch and environment. Spawn, never fork.
+- Pin the graph, target branch, and each `ticket-base`. Mutating workers commit
+  and leave a clean tree; reviewers and checkers preserve it.
+- Opening a draft PR and pushing its ticket branch are part of this skill.
+  Merging, deploying, archiving, and cleanup remain separate actions.
+- Leave a ticket open or `in review` until its PR merges. Never close it merely
+  because implementation or review passed.
+- Use ticket acceptance criteria as scope and leave the parent Spec unchanged.
+- Cross-ticket integration belongs to an explicit approved ticket. Do not make
+  an implicit cumulative implementation or final mega-PR.
 
 ## Prepare
 
-1. Use `bb-cli` to resolve the project, provider, environment, branch, clean
-   committed `HEAD`, tracker, full Spec, every ticket, and every blocking edge.
-   Freeze the graph; pause on non-ready tickets, missing edges or cycles.
-2. Snapshot the artifacts once and attach the same bytes to relevant workers.
-   Record bases, graph state, worker IDs, and finding dispositions under
-   `$BB_THREAD_STORAGE`. Reconcile the ledger with BB, Git, and the tracker on
-   resume before taking one transition.
-3. Reuse a clean environment or create one managed worktree at `run-base`.
-   Leave unrelated source-checkout changes untouched.
-4. Verify `bb-cli`, `implement`, `diagnosing-bugs`, `tdd`, and `code-review` in
-   the selected environment. Spawn with explicit project, parent, environment,
-   provider, attachments, and JSON output.
+1. Use `bb-cli` to resolve the project, provider, target branch, remote, clean
+   committed `HEAD`, tracker, Spec, tickets, blocking edges, and current PRs.
+   Freeze the graph; pause on non-ready tickets, missing edges, or cycles.
+2. Snapshot the approved artifacts once. Record graph state, bases, branch and
+   environment IDs, workers, commits, finding dispositions, and PR URLs under
+   `$BB_THREAD_STORAGE`. Reconcile the ledger with BB, Git, GitHub, and the
+   tracker before one transition on resume.
+3. Verify `bb-cli`, `implement`, `diagnosing-bugs`, `tdd`, `code-review`,
+   `review-fix-loop`, and `pr-writer`, plus authenticated push and PR access.
+   Leave unrelated source checkout changes untouched.
 
 ## Wait
 
 Use `bb thread wait <id> --timeout 1200 --json`. A timeout means the worker is
 not idle yet; it is not a failed phase. Compare work status, latest event
 sequence, interactions, and Git state. Progress starts another wait. After two
-unchanged windows, inspect the log and interactions, then send one `tell` asking
-for status. One more unchanged window pauses. A user stop or pending question
-pauses immediately. Never spawn the next worker before the current worker is idle and inspected.
+unchanged windows, inspect the log and interactions, then send one status
+`tell`. One more unchanged window pauses. A user stop or pending question
+pauses at once. Never spawn the next worker before the prior one is idle and
+inspected.
 
-## Route by uncertainty
+## Start a ticket
 
-- Planned behavior or a known fix uses `/implement`.
-- A specific hard, unexplained, intermittent, or performance defect uses
-  `/diagnosing-bugs`. It diagnoses the ticket, never review-loop convergence.
+Choose the first ready ticket in published dependency order. Open a linear PR
+stack so work can continue without combining ticket diffs:
+
+- The first ticket branches from the target branch.
+- Each later ticket branches from the exact accepted head of the previous
+  ticket and its PR targets that previous ticket branch.
+- When a parent PR merges, retarget its oldest open child to the target branch
+  only after proving the child diff still contains one ticket.
+
+Create a managed environment at that base and record `ticket-base`, `pr-base`,
+and `ticket-branch`. A dirty or drifting base pauses the run.
 
 ## Worker prompts
 
 Implementation:
 ```text
-/implement <full ticket or spec reference>
-Use the attached approved seams. End after validation and a clean commit; the next fresh thread owns /code-review.
+/implement <attached full ticket>
+Use the approved seams. Validate, commit, and leave the tree clean. End before /code-review.
 ```
+
 Diagnosis:
 ```text
 /diagnosing-bugs
-Fix the attached ticket through all six phases. End after cleanup, validation, and a clean commit; the next fresh thread owns /code-review.
+Fix the attached ticket through all six phases. Validate, commit, and leave the tree clean.
 ```
-Review:
+
+Pull request:
 ```text
-/code-review <base>
-Spec: <attached ticket and parent Spec>.
-Add to both axis briefs: "Do not invoke /code-review or spawn additional agents; perform this review directly." Keep the tree unchanged.
+/pr-writer
+Push exact clean HEAD and open a draft PR from <ticket-branch> into <pr-base> for <ticket>. Return its URL and base/head SHAs.
 ```
-Finding check:
-```text
-Verify each attached finding against its citation and <base>...HEAD.
-Consolidate the same root cause under one stable <axis>-<n> ID; return CONFIRMED or DISPUTED with evidence. Keep the tree unchanged.
-```
-Fix:
-```text
-Fix only the attached confirmed findings.
-Use /tdd for behavioral fixes only at attached pre-agreed seams. Commit cleanly and report validation.
-```
-Closure check:
-```text
-Check the complete attached finding ledger and <fix-base>...HEAD. Reuse IDs for the same root cause. Return RESOLVED or OPEN; label only regressions caused by the fix CONFIRMED_FIX_REGRESSION.
-Keep the tree unchanged.
-```
-Recovery:
-```text
-Recover the attached stalled root causes. For a stalled behavioral defect use /diagnosing-bugs and its tight red loop; otherwise correct the cited root directly.
-Commit cleanly and report validation.
-```
+
 ## Gates
 
-Choose one ticket from the ready frontier in published dependency order. If the
-frontier is empty while tickets remain, pause with the unresolved blockers.
+Planned behavior or a known fix uses `/implement`; a hard, unexplained,
+intermittent, or performance defect uses `/diagnosing-bugs`.
 
-Set `unit-base = HEAD`, run the selected route, and require an advancing commit,
-required validation, and a clean environment. Diagnosis also requires one tight, red-capable command that reproduced the exact symptom, the supported cause,
-cleanup, and a regression test at an approved seam. If no correct seam exists,
-record that evidence and an `/improve-codebase-architecture` follow-up instead
-of a shallow test.
+Implementation must advance from `ticket-base`, pass required validation, and
+leave a clean tree. Diagnosis also needs a tight red reproduction, supported
+cause, cleanup, and a regression test at an approved seam. If no sound seam
+exists, record an `/improve-codebase-architecture` follow-up instead of a
+shallow test.
 
-Run `/code-review unit-base` once. Keep Standards and Spec separate. Zero on
-both accepts the unit; a skipped Spec pauses the run. Otherwise, verify every
-finding, then fix only confirmed findings from a captured `fix-base`.
+Apply `review-fix-loop` directly in this orchestrator at `ticket-base`; do not
+spawn a loop coordinator. Require `LOOP_GATE.verdict: PASS`, zero open confirmed
+findings, required validation, and a clean tree. A skipped Spec or paused loop
+blocks the PR.
 
-After verification, set `best-burden` to the number of distinct open root causes.
-A fresh closure checker checks the complete ledger and fix delta. Finish at zero.
-A result below `best-burden` becomes the new best and continues; `best-burden` strictly decreases. Otherwise allow one recovery for that plateau.
-A stalled behavioral defect uses `/diagnosing-bugs`; other roots get direct
-correction. Recovery must fall below the unchanged `best-burden`; otherwise
-pause with the same root cause evidence. There is no attempt counter. Do not rerun `/code-review` or rediscover the whole unit.
+Before opening the PR, reconcile every acceptance criterion and prove
+`pr-base...HEAD` contains only this ticket. After creation, verify its remote
+head equals the reviewed `HEAD`, its base is `pr-base`, and its URL is recorded.
+Set the tracker to `in review`, then start the next ticket in a new environment.
+If push or PR creation fails, pause before advancing the graph.
 
-Reconcile the ticket's acceptance criteria, mark it complete through the
-tracker, leave the parent Spec unchanged, and recompute the frontier. Continue
-until the frozen queue is empty. After two or more tickets, apply the same
-one-review and closure policy once to `run-base...HEAD` against the full Spec.
+## Cumulative-run recovery
+
+If an older run put accepted tickets on one branch, stop new work and preserve
+it. Use the ledger's accepted heads to create branch refs without rewriting
+commits, then open oldest-first stacked PRs whose diffs each map to one ticket.
+Keep dirty in-flight work on its current ticket until clean and accepted. Pause
+if any ticket base, accepted head, or diff ownership cannot be proved.
 
 ## Finish
 
-Report the environment, branch, bases, final `HEAD`, ticket order, worker IDs,
-commits, validation, review counts by axis, finding dispositions, tracker
-updates, and unresolved evidence.
+Report ticket order, bases, environments, branches, commits, validation,
+review-fix results, tracker state, and the ordered PR stack. Every accepted
+ticket must have one PR URL; merge the stack oldest first in a separate run.

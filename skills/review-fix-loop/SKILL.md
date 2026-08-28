@@ -1,8 +1,7 @@
 ---
 name: review-fix-loop
-description: "Use when a committed diff needs one fresh BB code review, fixes for confirmed findings, and bounded closure verification."
+description: "Review and fix a committed diff through fresh BB workers. Use when an orchestrator needs a code-review gate before opening a pull request, or when the user invokes the loop directly."
 argument-hint: "<fixed-point> [spec or ticket reference]"
-disable-model-invocation: true
 ---
 
 # Review Fix Loop
@@ -17,10 +16,11 @@ review once -> no findings -> finish
 - Keep one orchestrator-spawned BB worker active. `/code-review` may create its
   required Standards and Spec subagents; those subagents create no descendants.
 - Give every review, finding check, fix, and closure check a fresh spawned
-  thread in one cumulative environment. Never fork or reuse a worker.
+  thread in one ticket environment. Never fork or reuse a worker.
 - Pin one immutable review base. Reviews and checks are read-only; fixes commit,
   validate, and leave the tree clean.
-- Push, PR, merge, deploy, archive, and cleanup require separate requests.
+- Return a clean gate to the caller. The caller owns branch push and PR creation;
+  merge, deploy, archive, and cleanup remain separate actions.
 
 ## Prepare
 
@@ -112,6 +112,16 @@ pause with the same root cause evidence. There is no attempt counter. Do not rer
 
 ## Finish
 
-Report the environment, branch, review base, initial and final `HEAD`, worker
-IDs, fix commits, validation, per-axis review counts, finding dispositions, and
-any unresolved evidence.
+End with:
+
+```yaml
+LOOP_GATE:
+  verdict: PASS | PASS_STANDARDS_ONLY | PAUSED
+  review_base: <sha>
+  final_head: <sha>
+  open_confirmed_findings: <count>
+```
+
+`PASS` requires both axes and zero open confirmed findings. Report the ticket
+environment, branch, worker IDs, fix commits, validation, finding dispositions,
+and unresolved evidence before the footer.
