@@ -22,7 +22,7 @@ regressions. The workflow does not rerun
 `/code-review` to chase a zero-finding result. The `/code-review` guide warns
 that repeated reviews are nondeterministic and may not converge.
 
-![Inside one ticket: implement, review once, verify findings, fix, and verify closure in fresh threads sharing its worktree.](assets/bb-orchestration-workflow-v2.png)
+![One ticket at a time: use a fresh branch and worktree, implement, review once, close confirmed findings, open a draft PR, then start the next ticket from the accepted head.](assets/bb-orchestration-workflow-v4.png)
 
 ## Skills
 
