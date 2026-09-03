@@ -105,6 +105,8 @@ require_pattern "$orchestrator" '/improve-codebase-architecture'
 require_pattern "$orchestrator" 'raw bugs.*triage|triage.*raw bugs'
 require_pattern "$orchestrator" 'missing edges, cycles, or a'
 require_pattern "$orchestrator" 'ticket without acceptance criteria'
+require_pattern "$orchestrator" 'ready-for-agent'
+require_pattern "$orchestrator" "ticket's seams"
 require_pattern "$orchestrator" 'first ready ticket'
 require_pattern "$orchestrator" 'leave the parent Spec unchanged'
 reject_pattern "$orchestrator" 'final integration gate|one integration gate'

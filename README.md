@@ -67,9 +67,10 @@ and go back through the fix loop.
 ### `show-me`
 
 Vendored from [humanlayer/skills](https://github.com/humanlayer/skills) under
-the MIT license. It explains a topic with concise diagrams, code-shape
-sketches, and Mermaid. The orchestrator hands it to the PR worker; you can also
-invoke it directly.
+the MIT license, with the HTML-open step pointed at BB (`bb thread open` and
+an inline preview) instead of Claude Code's open command. It explains a topic
+with concise diagrams, code-shape sketches, and Mermaid. The orchestrator hands
+it to the PR worker; you can also invoke it directly.
 
 ## Reference files
 
@@ -87,8 +88,8 @@ The skills stay short because the mechanics live in reference files:
 ## What they enforce
 
 - One active worker at a time.
-- A fresh BB thread for every implementation, diagnosis, review, finding check,
-  fix, and closure check.
+- A fresh hidden BB thread for every implementation, diagnosis, review, finding
+  check, fix, and closure check, stopped after its result is recorded.
 - One branch and managed worktree per ticket; only that ticket's workers share
   it.
 - Worker claims are verified in the worktree: clean tree, expected `HEAD`, and

@@ -1,6 +1,6 @@
 ---
 name: orchestrate-implementation
-description: "Run an approved ticket graph serially in fresh BB threads and open one reviewed pull request per ticket."
+description: "Run an approved ticket graph serially in fresh BB threads: one reviewed pull request per ticket, and with --land, merge the stack."
 argument-hint: "<spec, ticket set, or ticket references> [--land] | resume | status"
 disable-model-invocation: true
 ---
@@ -53,7 +53,7 @@ once the run is `finished`, so one invocation goes from tickets to merged.
 
 1. Use `bb-cli` to resolve the project, provider, target branch, remote, clean
    committed `HEAD`, tracker, Spec, tickets, blocking edges, and current PRs.
-   Freeze the graph; pause on non-ready tickets, missing edges, cycles, or a
+   Freeze the graph; pause on tickets not ready-for-agent, missing edges, cycles, or a
    ticket without acceptance criteria.
 2. Resolve `validation`: the ticket's own validation line, else the project's
    documented check, else the package's `test`, `lint`, and `typecheck`
@@ -81,7 +81,7 @@ Every prompt ends with `End with the attached WORKER_RESULT footer.`
 Implementation:
 ```text
 /implement <attached full ticket>
-Use the approved seams. Validate, commit, and leave the tree clean. End before /code-review.
+Use the ticket's seams, or the project's documented test seams. Validate, commit, and leave the tree clean. End before /code-review.
 ```
 
 Diagnosis:

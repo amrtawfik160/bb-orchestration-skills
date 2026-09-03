@@ -58,6 +58,18 @@ fi
 # The vendored show-me skill keeps its license beside it.
 [[ -f "$repo_root/skills/show-me/LICENSE" ]] || fail "skills/show-me/LICENSE is missing"
 
+# show-me is vendored for BB: open HTML in the thread, not Claude Code's Bash open.
+show_me="$repo_root/skills/show-me/SKILL.md"
+if grep -q 'Bash(open' "$show_me"; then
+  fail "skills/show-me/SKILL.md: still uses Claude Code Bash(open)"
+fi
+if ! grep -q 'bb thread open' "$show_me"; then
+  fail "skills/show-me/SKILL.md: must open HTML with bb thread open"
+fi
+if ! grep -q 'inline-vis' "$show_me"; then
+  fail "skills/show-me/SKILL.md: must emit the inline-vis directive"
+fi
+
 if (( failed )); then
   exit 1
 fi

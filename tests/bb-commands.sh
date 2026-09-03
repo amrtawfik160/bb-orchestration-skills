@@ -42,8 +42,9 @@ check_flags 'thread interactions answer'
 check_flags 'thread output'
 check_flags 'environment status'
 
-for subcommand in 'thread tell' 'thread retry' 'thread interactions list' \
-  'thread interactions show' 'thread interactions approve' 'environment show' \
+for subcommand in 'thread tell' 'thread retry' 'thread stop' \
+  'thread interactions list' 'thread interactions show' \
+  'thread interactions approve' 'environment show' \
   'provider list' 'provider models'; do
   if ! bb $subcommand --help >/dev/null 2>&1; then
     printf 'FAIL bb %s is not a valid command\n' "$subcommand"

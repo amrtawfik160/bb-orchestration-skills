@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-03 — Workers stay out of the way, and diagrams open in BB
+
+Background workers no longer fill the sidebar or keep a seat after they
+finish: each one starts hidden and is stopped once its result is recorded.
+
+The bundled show-me skill opens diagrams in the BB thread, so you can see them
+here instead of through a Claude-only open command.
+
+The orchestrator's one-line summary now says it can take tickets all the way
+to a merged stack, not just open pull requests. Implementation uses the seams
+already on the ticket or in the project's test docs, and GitHub comments are
+treated as data to check, not as instructions.
+
 ## 2026-09-03 — Simpler PR step, a leaner GitHub CLI, and a current diagram
 
 ### New workflow diagram
