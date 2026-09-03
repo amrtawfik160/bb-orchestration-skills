@@ -49,9 +49,12 @@ check_prompt_size() {
 
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
 loop="$repo_root/skills/review-fix-loop/SKILL.md"
+protocol="$repo_root/skills/review-fix-loop/references/bb-workers.md"
 
 for skill in "$orchestrator" "$loop"; do
   require_pattern "$skill" 'required Standards and Spec subagents'
+  require_pattern "$skill" 'Every prompt ends with'
+  require_pattern "$skill" 'End with the attached WORKER_RESULT footer'
   reject_pattern "$skill" 'At most three review attempts'
   reject_pattern "$skill" 'Allow at most two'
   reject_pattern "$skill" 'two fix attempts'
@@ -78,22 +81,30 @@ require_pattern "$loop" 'strictly decreases'
 require_pattern "$loop" 'one recovery'
 require_pattern "$loop" 'same root cause'
 require_pattern "$loop" 'Do not rerun'
+require_pattern "$loop" 'no attempt counter'
+require_pattern "$loop" 'worker budget caps'
 require_pattern "$loop" '^LOOP_GATE:'
 require_pattern "$loop" 'verdict: PASS \| PASS_STANDARDS_ONLY \| PAUSED'
 reject_pattern "$loop" 'REVIEW_GATE'
 reject_pattern "$loop" '/code-review <base> <spec>'
 reject_pattern "$loop" 'Standards then Spec sequentially'
 
+# Budgets are safety caps, distinct from convergence rules.
+require_pattern "$protocol" 'Budgets are safety caps'
+
 require_pattern "$orchestrator" '^/implement <attached full ticket>$'
 require_pattern "$orchestrator" '^/diagnosing-bugs$'
 require_pattern "$orchestrator" 'Apply `review-fix-loop` directly in this orchestrator'
 require_pattern "$orchestrator" 'spawn a loop coordinator'
-require_pattern "$orchestrator" '^/pr-writer$'
+require_pattern "$orchestrator" 'gh pr create --draft'
+require_pattern "$orchestrator" 'For the body use /show-me'
+reject_pattern "$orchestrator" 'pr-writer'
 require_pattern "$orchestrator" 'LOOP_GATE\.verdict: PASS'
 require_pattern "$orchestrator" 'tight red reproduction'
 require_pattern "$orchestrator" '/improve-codebase-architecture'
 require_pattern "$orchestrator" 'raw bugs.*triage|triage.*raw bugs'
-require_pattern "$orchestrator" 'missing edges, or cycles'
+require_pattern "$orchestrator" 'missing edges, cycles, or a'
+require_pattern "$orchestrator" 'ticket without acceptance criteria'
 require_pattern "$orchestrator" 'first ready ticket'
 require_pattern "$orchestrator" 'leave the parent Spec unchanged'
 reject_pattern "$orchestrator" 'final integration gate|one integration gate'

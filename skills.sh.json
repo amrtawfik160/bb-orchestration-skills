@@ -7,7 +7,15 @@
       "description": "Serial BB workflows for Matt Pocock's implementation and code review skills.",
       "skills": [
         "orchestrate-implementation",
-        "review-fix-loop"
+        "review-fix-loop",
+        "land-stack"
+      ]
+    },
+    {
+      "title": "Bundled helpers",
+      "description": "Skills the orchestrator gives its workers. show-me is vendored from humanlayer/skills (MIT).",
+      "skills": [
+        "show-me"
       ]
     }
   ]
