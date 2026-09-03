@@ -4,7 +4,7 @@
   "groupings": [
     {
       "title": "BB orchestration",
-      "description": "Serial BB workflows for Matt Pocock's implementation and code review skills.",
+      "description": "Serial BB workflows that carry Matt Pocock's implementation and code review skills from an approved ticket graph through to a merged target branch.",
       "skills": [
         "orchestrate-implementation",
         "review-fix-loop",
