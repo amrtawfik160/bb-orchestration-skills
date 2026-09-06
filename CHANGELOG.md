@@ -1,5 +1,88 @@
 # Changelog
 
+## 2026-09-06 — A new cleanup skill that runs on BB
+
+`codebase-docs-cleanup` joins the set. It clears out documentation that just
+repeats the code, and keeps what code cannot explain: why decisions were made,
+what business terms mean, and short pointers to where things live.
+
+It is a separate workflow, not part of the ticket-to-merge path.
+
+### Nothing you own gets touched
+
+All the work happens in its own copy of the repository, pinned at your current
+commit. Your working files are never edited, and throwing away the branch undoes
+the entire run.
+
+One catch it now handles explicitly: that copy only contains files tracked by
+Git, so anything untracked is invisible to it. The run lists those files up
+front and reports them as untouched instead of quietly ignoring them.
+
+### Reading happens in parallel, editing does not
+
+Surveying the repository is split across several workers at once, because
+reading is safe. Anything that actually changes a file runs on its own and is
+checked before the next one starts.
+
+### The navigation check is honest now
+
+After a cleanup, the agent that did the work always knows where everything is,
+so it cannot judge whether the remaining pointers are good. Fresh agents that
+have never seen the repository are sent in instead, given only the entry
+document. If one has to guess, the pointer gets fixed.
+
+### Look before you commit
+
+Ask for an audit and it stops after the plan, which is written outside the
+repository so nothing is left behind. Every check is compared against a baseline
+taken before any edit, so an already-failing test is never blamed on the
+cleanup.
+
+## 2026-09-06 — The orchestrator reads BB correctly again
+
+### Stalled workers are detected properly
+
+The orchestrator checked on a busy worker by reading the *first* few events of
+its conversation instead of the newest ones. Those events never change, so a
+worker that was working fine looked frozen, and a run could pause for no reason.
+It now reads only what happened since the last check.
+
+### Waiting is no longer mistaken for stuck
+
+A new worker sometimes has to wait its turn when the machine is already busy,
+and a rate-limited worker is sometimes already scheduled to try again on its
+own. Both used to look like failures. The orchestrator now recognises them and
+simply waits.
+
+### A paused run schedules its own restart
+
+Instead of setting up a recurring background job and remembering to remove it,
+the run now schedules a single restart for itself and cancels it if you resume
+first. The recurring job is still there for runs that need it.
+
+### You can open the worker that blocked a run
+
+Workers are hidden, so there was no way to find the one that caused a pause.
+When a run stops and blames a worker, that worker is now made visible and
+opened for you.
+
+### Checks work on other machines
+
+Verifying a worker's work assumed the code was on the same machine as the
+orchestrator. It now also reads the state through BB, so runs on a remote
+machine are checked the same way.
+
+### Safer cleanup and merges
+
+Clearer rules on what archiving actually deletes, and a note that merging must
+stay on the GitHub command because it is the only one that can confirm it is
+merging exactly the reviewed commit.
+
+### Tests that catch this next time
+
+A new test compares the skills against the installed BB and fails if any of
+these behaviours change again.
+
 ## 2026-09-03 — Workers stay out of the way, and diagrams open in BB
 
 Background workers no longer fill the sidebar or keep a seat after they

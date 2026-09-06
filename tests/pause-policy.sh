@@ -34,7 +34,12 @@ require_pattern "$protocol" 'the exact command that continues it'
 require_pattern "$protocol" 'With no such'
 require_pattern "$protocol" 'the thread report is the notification'
 
+# A decision pause must be reachable: workers are hidden by default.
+require_pattern "$protocol" 'the user cannot reach one from the sidebar'
+require_pattern "$protocol" 'surface it and record the promotion'
+
 require_pattern "$protocol" '## Auto-resume'
+require_pattern "$protocol" 'leaves nothing to clean up'
 require_pattern "$protocol" 'bb automation create --project'
 require_pattern "$protocol" 'bb automation delete'
 require_pattern "$protocol" 'delete that automation when the run leaves `paused`'
@@ -50,6 +55,8 @@ for ledger in "$run_ledger" "$loop_ledger"; do
 done
 require_pattern "$run_ledger" '"notify"'
 require_pattern "$run_ledger" 'auto_resume_automation'
+require_pattern "$run_ledger" 'auto_resume_message'
+require_pattern "$run_ledger" 'At most one of the two is non-null'
 
 if (( failed )); then
   exit 1

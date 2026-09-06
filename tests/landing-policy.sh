@@ -58,8 +58,10 @@ require_pattern "$land" 'starts at the first unmerged ticket'
 require_pattern "$land" 'state` must be `MERGED`'
 require_pattern "$land" 'only after its merge is confirmed on the remote'
 require_pattern "$land" 'bb environment archive-threads'
-require_pattern "$land" 'removes the worktree and its local branch'
-require_pattern "$land" 'Confirm the worktree path is'
+require_pattern "$land" 'destroys that worktree and'
+require_pattern "$land" 'its local branch'
+require_pattern "$land" 'Confirm both the environment status and the missing'
+require_pattern "$land" 'gh pr merge'
 require_pattern "$land" '--keep-environments'
 
 # Issue closing is verified, not assumed.

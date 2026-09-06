@@ -18,7 +18,11 @@ the next transition.
   "spec": "/path/to/spec.md",
   "validation": "pnpm test && pnpm lint",
   "budget": { "workers": 12, "minutes": 360 },
-  "notify": { "command": "bb notify send", "auto_resume_automation": "aut_abc123" },
+  "notify": {
+    "command": "bb notify send",
+    "auto_resume_message": "qmsg_abc123",
+    "auto_resume_automation": null
+  },
   "landing": {
     "state": "pending",
     "method": "merge",
@@ -47,7 +51,7 @@ the next transition.
       "accepted_head": "89abcdef0123456789abcdef0123456789abcdef",
       "started_at": "2026-09-03T10:00:00Z",
       "workers": [
-        { "phase": "implement", "thread": "thr_abc123", "status": "idle", "head": "89abcdef0123456789abcdef0123456789abcdef", "verified": true }
+        { "phase": "implement", "thread": "thr_abc123", "status": "idle", "last_seq": 412, "head": "89abcdef0123456789abcdef0123456789abcdef", "verified": true }
       ],
       "loop": { "schema": 1, "state": "finished" },
       "criteria": [ { "text": "Users can export CSV", "evidence": "tests/export.test.ts" } ],
@@ -85,8 +89,14 @@ Field notes:
 - `landing.state` is `pending`, `running`, `paused`, or `landed`;
   `landing.method` is `merge`, `squash`, or `rebase`.
 - `tickets.<id>.landing.environment_state` is `active`, `archived`, or `kept`.
+- `workers[].last_seq` is the highest thread-log event sequence already read for
+  that worker; the next wait window pages from it with `--after-seq`.
+- `notify.auto_resume_message` is the scheduled resume queued on this thread;
+  `notify.auto_resume_automation` is set only when a run uses the repeating
+  automation instead. At most one of the two is non-null.
 - `pause` is
   `{ "class", "reason", "ticket", "worker", "evidence", "next_action", "auto_resume_count" }`,
-  where `class` is `transient` or `decision`.
+  where `class` is `transient` or `decision`. A `decision` pause that promoted
+  its worker to visible also carries `"promoted_worker": true`.
 - The run also stores every worker's saved output and both review reports
   under `$BB_THREAD_STORAGE/orchestrate-implementation/<ticket>/`.

@@ -17,10 +17,13 @@ the `gh-axi` skill when it is installed, per the GitHub section of
 
    ```bash
    gh pr view "$URL" --json number,url,isDraft,baseRefName,headRefName,headRefOid
+   bb environment pull-request show "$ENV" --json
    ```
 
    `headRefOid` equals the accepted head and `baseRefName` equals `pr_base`.
-   Any mismatch pauses.
+   Any mismatch pauses. BB tracks the same PR on the ticket environment, so
+   its record and `gh` must agree; a disagreement means the ledger's
+   environment or PR is wrong and pauses too.
 2. Wait for checks in the same bounded windows as worker waits:
 
    ```bash
