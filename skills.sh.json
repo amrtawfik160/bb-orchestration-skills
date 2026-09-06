@@ -12,6 +12,13 @@
       ]
     },
     {
+      "title": "Codebase hygiene",
+      "description": "Code-first cleanup that makes the implementation the source of truth and keeps only the documentation code cannot replace.",
+      "skills": [
+        "codebase-docs-cleanup"
+      ]
+    },
+    {
       "title": "Bundled helpers",
       "description": "Skills the orchestrator gives its workers. show-me is vendored from humanlayer/skills (MIT).",
       "skills": [

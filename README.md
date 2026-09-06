@@ -64,6 +64,24 @@ so the whole path from tickets to merged main runs without you. Pass
 comment threads. Unresolved comments without that flag are treated as findings
 and go back through the fix loop.
 
+### `codebase-docs-cleanup`
+
+A separate workflow, not part of the ticket-to-merge path. It applies Matt's
+code-first documentation approach: make the implementation the source of truth,
+and keep only what code cannot explain — decisions, domain meaning, and a thin
+navigation layer.
+
+All the work happens in a managed worktree pinned at the current `HEAD`, so your
+checkout is never touched and discarding the branch reverts everything. The
+inventory fans out one read-only worker per subsystem, because reading in
+parallel is safe; every batch that actually edits runs alone and is verified
+before the next one starts.
+
+The navigation layer is proved by fresh threads that never saw the cleanup. A
+worker that has to guess its way to a subsystem means the pointer is wrong, not
+the worker. `--audit` stops after the plan, which is written to thread storage
+rather than into the repository.
+
 ### `show-me`
 
 Vendored from [humanlayer/skills](https://github.com/humanlayer/skills) under
@@ -84,16 +102,21 @@ The skills stay short because the mechanics live in reference files:
 | `orchestrate-implementation/references/ledger.md` | Run ledger schema, including per-phase provider and model choices and landing state |
 | `orchestrate-implementation/references/pr-stack.md` | Checks, ready state, squash-merge rebases, review comments, merge order |
 | `orchestrate-implementation/references/recovery.md` | Rebuilding a stack from an older single-branch run |
+| `codebase-docs-cleanup/references/inventory.md` | Classification classes, evidence table, and the keep/trim/merge/delete decision rules |
+| `codebase-docs-cleanup/references/pruning.md` | The five prose tests, `AGENTS.md` rules, navigation pointers, and code-readability limits |
+| `codebase-docs-cleanup/references/ledger.md` | Cleanup ledger schema, including the validation baseline and navigation checks |
 
 ## What they enforce
 
-- One active worker at a time.
+- One active worker at a time, except for read-only workers that never write.
 - A fresh hidden BB thread for every implementation, diagnosis, review, finding
   check, fix, and closure check, stopped after its result is recorded.
 - One branch and managed worktree per ticket; only that ticket's workers share
   it.
 - Worker claims are verified in the worktree: clean tree, expected `HEAD`, and
-  the resolved validation command rerun by the orchestrator.
+  the resolved validation command rerun by the orchestrator. BB's own reading of
+  the worker's workspace corroborates it, so the checks hold when the worktree
+  lives on another machine.
 - One draft PR per accepted ticket, with the issue left open until merge. The
   PR is marked ready when its checks pass; a failing check pauses before the
   next ticket stacks on it.
@@ -151,8 +174,8 @@ its own context. `/ask-matt` remains a router, not a workflow step.
 
 ## Install
 
-Install from skills.sh. `review-fix-loop` and `show-me` work on their own;
-the orchestrator needs all four:
+Install from skills.sh. `review-fix-loop`, `codebase-docs-cleanup`, and
+`show-me` work on their own; the orchestrator needs the whole set:
 
 ```bash
 npx skills add amrtawfik160/bb-orchestration-skills
@@ -172,12 +195,13 @@ mkdir -p ~/.bb/skills
 cp -R bb-orchestration-skills/skills/* ~/.bb/skills/
 ```
 
-Two skills read reference files from their siblings' directories, so install
+Three skills read reference files from their siblings' directories, so install
 them together:
 
 - `orchestrate-implementation` reads `../review-fix-loop/references/`.
 - `land-stack` reads both `../review-fix-loop/references/` and
   `../orchestrate-implementation/references/`.
+- `codebase-docs-cleanup` reads `../review-fix-loop/references/`.
 
 `review-fix-loop` and `show-me` have no such dependency.
 

@@ -81,6 +81,8 @@ For the oldest unmerged ticket in `order`:
    ```
 
    `state` must be `MERGED`. Record `merge_commit` and `merged_at`.
+   `bb environment pull-request merge` takes only `--method`, so it cannot
+   assert the head or delete the branch; keep `gh pr merge` here.
 4. Close the ticket through the tracker workflow with a comment that links the
    PR. GitHub closes issues named by `Fixes #n` on its own, so check first:
 
@@ -93,10 +95,12 @@ For the oldest unmerged ticket in `order`:
 
    ```bash
    bb environment archive-threads "$ENV"
+   bb environment show "$ENV" --json          # .status becomes destroying, then destroyed
    ```
 
-   That removes the worktree and its local branch. Confirm the worktree path is
-   gone before recording `environment_state: archived`.
+   Archiving every live thread of a managed worktree destroys that worktree and
+   its local branch. Confirm both the environment status and the missing
+   worktree path before recording `environment_state: archived`.
 6. Write `tickets.<id>.state: merged`, then continue with the next ticket. Its
    parent is now merged, so step 1 retargets or rebases it.
 

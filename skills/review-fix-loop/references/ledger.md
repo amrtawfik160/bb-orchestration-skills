@@ -30,6 +30,7 @@ next transition.
       "phase": "review",
       "thread": "thr_abc123",
       "status": "idle",
+      "last_seq": 412,
       "base": "89abcdef0123456789abcdef0123456789abcdef",
       "head": "89abcdef0123456789abcdef0123456789abcdef",
       "verified": true,
@@ -65,3 +66,5 @@ Field notes:
   when paused, where `class` is `transient` or `decision`.
 - `workers[].output` is the saved final message, relative to
   `$BB_THREAD_STORAGE`.
+- `workers[].last_seq` is the highest thread-log event sequence already read for
+  that worker; the next wait window pages from it with `--after-seq`.
