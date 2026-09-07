@@ -61,7 +61,11 @@ For the oldest unmerged ticket in `order`:
    ```
 
    Require `baseRefName` equal to the target, `headRefOid` equal to
-   `accepted_head`, `mergeable: MERGEABLE`, and no failing check. With
+   `accepted_head`, `mergeable: MERGEABLE`, and no failing check
+   outside the run's `ci_baseline`. A check that already failed on the target
+   branch when the run started is inherited, not caused: report it and merge.
+   A run whose ledger has no `ci_baseline` measures one now against the target
+   branch rather than treating a red repository as a blocked stack. With
    `--require-approvals`, also require `reviewDecision: APPROVED` and zero
    unresolved review threads:
 

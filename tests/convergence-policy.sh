@@ -38,7 +38,7 @@ check_prompt_size() {
     fi
   done < <(
     awk '
-      /^## Worker prompts/ { in_prompts = 1; next }
+      /^## Worker prompts/ || /^# Worker prompts/ { in_prompts = 1; next }
       /^## Gates/ { in_prompts = 0 }
       in_prompts && !in_block && /^```text$/ { in_block = 1; lines = 0; next }
       in_prompts && in_block && /^```$/ { print lines; in_block = 0; next }
@@ -48,17 +48,20 @@ check_prompt_size() {
 }
 
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
+orchestrator_prompts="$repo_root/skills/orchestrate-implementation/references/worker-prompts.md"
 loop="$repo_root/skills/review-fix-loop/SKILL.md"
 protocol="$repo_root/skills/review-fix-loop/references/bb-workers.md"
 
 for skill in "$orchestrator" "$loop"; do
   require_pattern "$skill" 'required Standards and Spec subagents'
-  require_pattern "$skill" 'Every prompt ends with'
-  require_pattern "$skill" 'End with the attached WORKER_RESULT footer'
+  prompts="$skill"
+  [[ "$skill" == "$orchestrator" ]] && prompts="$orchestrator_prompts"
+  require_pattern "$prompts" 'Every prompt ends with'
+  require_pattern "$prompts" 'End with the attached WORKER_RESULT footer'
   reject_pattern "$skill" 'At most three review attempts'
   reject_pattern "$skill" 'Allow at most two'
   reject_pattern "$skill" 'two fix attempts'
-  check_prompt_size "$skill"
+  check_prompt_size "$prompts"
 
   lines=$(wc -l <"$skill")
   if (( lines > 130 )); then
@@ -92,12 +95,12 @@ reject_pattern "$loop" 'Standards then Spec sequentially'
 # Budgets are safety caps, distinct from convergence rules.
 require_pattern "$protocol" 'Budgets are safety caps'
 
-require_pattern "$orchestrator" '^/implement <attached full ticket>$'
-require_pattern "$orchestrator" '^/diagnosing-bugs$'
+require_pattern "$orchestrator_prompts" '^/implement <attached full ticket>$'
+require_pattern "$orchestrator_prompts" '^/diagnosing-bugs$'
 require_pattern "$orchestrator" 'Apply `review-fix-loop` directly in this orchestrator'
 require_pattern "$orchestrator" 'spawn a loop coordinator'
-require_pattern "$orchestrator" 'gh pr create --draft'
-require_pattern "$orchestrator" 'For the body use /show-me'
+require_pattern "$orchestrator_prompts" 'gh pr create --draft'
+require_pattern "$orchestrator_prompts" 'For the body use /show-me'
 reject_pattern "$orchestrator" 'pr-writer'
 require_pattern "$orchestrator" 'LOOP_GATE\.verdict: PASS'
 require_pattern "$orchestrator" 'tight red reproduction'
@@ -106,9 +109,9 @@ require_pattern "$orchestrator" 'raw bugs.*triage|triage.*raw bugs'
 require_pattern "$orchestrator" 'missing edges, cycles, or a'
 require_pattern "$orchestrator" 'ticket without acceptance criteria'
 require_pattern "$orchestrator" 'ready-for-agent'
-require_pattern "$orchestrator" "ticket's seams"
+require_pattern "$orchestrator_prompts" "ticket's seams"
 require_pattern "$orchestrator" 'first ready ticket'
-require_pattern "$orchestrator" 'leave the parent Spec unchanged'
+require_pattern "$orchestrator" 'parent Spec stays unchanged'
 reject_pattern "$orchestrator" 'final integration gate|one integration gate'
 reject_pattern "$orchestrator" '25 changed files|2,000 changed lines'
 reject_pattern "$loop" '^disable-model-invocation: true$'

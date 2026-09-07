@@ -1,5 +1,50 @@
 # Changelog
 
+## 2026-09-07 — Runs finish on their own now
+
+Two real runs were checked. Neither reached the end, and both stopped for
+reasons that were the skill's fault rather than the work's.
+
+### It stopped asking you to say "continue"
+
+The biggest problem: after each piece of work the run just ended its turn and
+waited. One run needed 52 nudges and still only got through 8 of 19 tickets.
+A run now queues its own next step before the turn ends, so it keeps going until
+it is genuinely finished or genuinely needs you. When it grows too large for one
+conversation, it hands the whole thing to a fresh one and tells you where it
+went.
+
+### A repository that was already broken no longer blocks everything
+
+Both runs stalled on tests that were failing on the main branch *before any work
+started*. Every pull request inherited those failures, so none of them could
+ever be marked ready, and nothing could merge. The run now records what was
+already failing at the start and stops blaming the tickets for it. Those
+failures are reported, not hidden.
+
+### Pull requests stop getting forgotten
+
+Seven pull requests were left waiting on their checks and never looked at again,
+because the run moved on and nothing brought it back. Every turn now starts by
+re-checking the open pull requests and marking ready whatever passed.
+
+### The review gate has to be written down
+
+One run marked tickets reviewed without ever recording the review's verdict.
+That is now required in writing before a pull request can be opened — an
+unrecorded gate counts as a skipped one.
+
+### Flaky tests get caught
+
+A bug slipped through and needed repairing after the fact because a timing test
+passed once by luck. Work that touches time, clocks, ordering or randomness now
+gets its tests run repeatedly instead of trusted after a single green run.
+
+### Smaller fixes
+
+Paused runs must say why they paused, or the automatic retry never sees them.
+And a notification is only recorded once it has actually been shown to work.
+
 ## 2026-09-06 — A new cleanup skill that runs on BB
 
 `codebase-docs-cleanup` joins the set. It clears out documentation that just

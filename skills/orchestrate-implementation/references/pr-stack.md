@@ -7,9 +7,32 @@ main <- PR A <- PR B <- PR C
 Each PR diff is one ticket. This file covers what happens after a PR opens:
 checks, ready state, parent merges, rebases, and review comments.
 
+## The CI baseline
+
+Measure the target branch once, before the first ticket, and record it as
+`ci_baseline`:
+
+```bash
+gh api "repos/{owner}/{repo}/commits/$TARGET/check-runs" --jq '[.check_runs[] | select(.conclusion == "failure") | .name]'
+```
+
+Record the names and the commit measured. A failure named here is
+inherited, not caused, and never blocks this run. A repository whose default
+branch is already red hands every PR the same failures; without this baseline
+the run reads them as ticket failures and no PR ever becomes ready.
+
 The `gh` commands below state what must be true at each step. Run them through
 the `gh-axi` skill when it is installed, per the GitHub section of
 `../../review-fix-loop/references/bb-workers.md`.
+
+## The check sweep
+
+CI outlives the turn that opened the PR, so checks are swept, never watched.
+Open every turn by refreshing each `in_review` ticket's `pr.checks` and marking
+ready whatever now passes net of `ci_baseline`. No PR stays recorded as
+`pending`: a `pending` row in the ledger is work this turn owes, and the seven
+stranded PRs that motivated this rule were all left `pending` by a turn that
+moved on and never came back.
 
 ## After a PR opens
 
@@ -24,16 +47,32 @@ the `gh-axi` skill when it is installed, per the GitHub section of
    Any mismatch pauses. BB tracks the same PR on the ticket environment, so
    its record and `gh` must agree; a disagreement means the ledger's
    environment or PR is wrong and pauses too.
-2. Wait for checks in the same bounded windows as worker waits:
+2. Record the checks without blocking the turn on them:
 
    ```bash
-   gh pr checks "$URL" --watch --fail-fast
+   gh pr view "$URL" --json statusCheckRollup \
+     --jq '[.statusCheckRollup[]? | {name: (.name // .context), state: (.conclusion // .state)}]'
    ```
 
-   No checks configured records `checks: none`. A pass records `checks: pass`
-   and marks the PR ready with `gh pr ready "$URL"`. A failure records the
-   failing check names and pauses before the next ticket starts, because the
-   next ticket would stack on a broken head.
+   Never use `gh pr checks --watch` here. CI outlives the turn that opened the
+   PR, so watching spends the turn that should be implementing the next ticket.
+   An unfinished run records `checks: pending` and is resolved by the sweep at
+   the start of a later turn, not left at `pending` forever.
+
+   Compare every failure against `ci_baseline` before judging it:
+
+   | Outcome | `pr.checks` | Action |
+   |---|---|---|
+   | No checks configured | `none` | Mark ready |
+   | All green | `pass` | Mark ready |
+   | Still running | `pending` | Sweep next turn |
+   | Every failure is in `ci_baseline` | `baseline_fail` | Mark ready, report the inherited failures |
+   | Any failure outside `ci_baseline` | `fail` | Pause: this one is the ticket's |
+
+   A red target branch is the repository's problem, not this ticket's, and it
+   must not strand the stack. Report inherited failures in Finish, and record a
+   follow-up ticket for them rather than repairing them inside a ticket's diff.
+   Mark a ready PR with `gh pr ready "$URL"`.
 3. Set the tracker to `in review`.
 
 ## When a parent PR merges

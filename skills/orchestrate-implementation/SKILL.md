@@ -15,32 +15,36 @@ pause and ask the user to run `/to-tickets`.
 
 ## Contract
 
-- Keep work serial. One orchestrator worker is active at a time;
-  `/code-review` may create only its required Standards and Spec subagents.
+- Keep work serial. One orchestrator worker is active at a time; `/code-review`
+  may create only its required Standards and Spec subagents.
 - Use a fresh thread for implementation, diagnosis, each review-fix phase, and
-  PR writing. Apply `review-fix-loop` in this orchestrator so it spawns only
-  those phase workers. One ticket shares one environment; the next gets a new
-  branch and environment. Spawn, never fork.
+  PR writing, and apply `review-fix-loop` here so it spawns only those phase
+  workers. One ticket shares one environment; the next gets a new branch and
+  environment. Spawn, never fork.
 - Pin the graph, target branch, and each `ticket-base`. Mutating workers commit
   and leave a clean tree; reviewers and checkers preserve it. Verify every
   worker claim in the worktree before recording it.
-- Opening a draft PR and pushing its ticket branch are part of this skill.
-  Merging, closing tickets, and archiving environments belong to `land-stack`,
-  which `--land` invokes once the whole graph is accepted. Deploying stays out.
-- Leave a ticket open or `in review` until its PR merges. Never close it merely
-  because implementation or review passed.
-- Use ticket acceptance criteria as scope and leave the parent Spec unchanged.
+- Opening a draft PR and pushing its branch are this skill's. Merging, closing
+  tickets, and archiving environments belong to `land-stack`, which `--land`
+  invokes once the whole graph is accepted. Deploying stays out.
+- Leave a ticket open or `in review` until its PR merges; implementation and
+  review passing is not a reason to close it. Scope is its acceptance criteria,
+  and the parent Spec stays unchanged.
 - Cross-ticket integration belongs to an explicit approved ticket. Do not make
   an implicit cumulative implementation or final mega-PR.
+- A run outlives one turn. End a turn only in a terminal state or with a
+  continuation queued per `bb-workers.md`, and open every turn with the PR
+  check sweep in `references/pr-stack.md`.
 
 ## References
 
 Follow `../review-fix-loop/references/bb-workers.md` for spawning, waiting,
-interactions, verification, budgets, pausing, notification, and auto-resume,
-and attach `../review-fix-loop/references/worker-footer.md` to every worker.
-Keep the ledger in `references/ledger.md`. After a PR opens,
-`references/pr-stack.md` owns checks, ready state, merges, rebases, and review
-comments.
+interactions, verification, budgets, continuation, relay, pausing, notification,
+and auto-resume, and attach `../review-fix-loop/references/worker-footer.md` to
+every worker. Keep the ledger in `references/ledger.md`. After a PR opens,
+`references/pr-stack.md` owns the baseline, checks, ready state, merges,
+rebases, and review comments. `references/worker-prompts.md` holds the
+implementation, diagnosis, and pull request prompts.
 
 ## Modes
 
@@ -58,12 +62,18 @@ once the run is `finished`, so one invocation goes from tickets to merged.
 2. Resolve `validation`: the ticket's own validation line, else the project's
    documented check, else the package's `test`, `lint`, and `typecheck`
    scripts. Record the command; run it yourself after every mutating worker.
-3. Snapshot the approved artifacts once and write the run ledger. `resume`, or
+   Repeat the affected suite when a diff touches time, clocks, concurrency,
+   ordering, or randomness: one green run cannot tell a passing test from a
+   flaky one, and every PR stacked on a flaky head inherits the repair.
+3. Capture `ci_baseline` with the command in `references/pr-stack.md`. A PR
+   failure named there is inherited, not caused, and never blocks this run;
+   without it a red repository reads as a red ticket and strands the stack.
+4. Snapshot the approved artifacts once and write the run ledger. `resume`, or
    an existing ledger at start, reconciles it with BB, Git, GitHub, and the
    tracker before one next transition.
-4. Verify `bb-cli`, `implement`, `diagnosing-bugs`, `tdd`, `code-review`,
-   `review-fix-loop`, `show-me`, `gh-axi`, and authenticated push and PR
-   access. Leave unrelated source checkout changes untouched.
+5. Verify `bb-cli`, `implement`, `diagnosing-bugs`, `tdd`, `code-review`,
+   `review-fix-loop`, `show-me`, `gh-axi`, and authenticated push and PR access.
+   Leave unrelated source checkout changes untouched.
 
 ## Start a ticket
 
@@ -73,29 +83,6 @@ branch. Each later ticket branches from the exact accepted head of the previous
 ticket, and its PR targets that previous ticket branch. Create a managed
 environment at that base and record `ticket-base`, `pr-base`, and
 `ticket-branch`. A dirty or drifting base pauses the run.
-
-## Worker prompts
-
-Every prompt ends with `End with the attached WORKER_RESULT footer.`
-
-Implementation:
-```text
-/implement <attached full ticket>
-Use the ticket's seams, or the project's documented test seams. Validate, commit, and leave the tree clean. End before /code-review.
-```
-
-Diagnosis:
-```text
-/diagnosing-bugs
-Fix the attached ticket through all six phases. Validate, commit, and leave the tree clean.
-```
-
-Pull request:
-```text
-Push exact clean HEAD, then open a draft PR from <ticket-branch> into <pr-base> for <ticket> with `gh pr create --draft`, or gh-axi if installed. Title it from the ticket summary.
-For the body use /show-me: the smallest diagram, call tree, or diff shape that shows what this ticket changed, plus two sentences of context. No HTML file.
-Return its URL and base/head SHAs.
-```
 
 ## Gates
 
@@ -107,17 +94,20 @@ and a regression test at an approved seam; if no sound seam exists, record an
 `/improve-codebase-architecture` follow-up instead of a shallow test.
 
 Apply `review-fix-loop` directly in this orchestrator at `ticket-base`; do not
-spawn a loop coordinator. Require `LOOP_GATE.verdict: PASS`, zero open confirmed
-findings, required validation, and a clean tree. A skipped Spec or paused loop
-blocks the PR.
+spawn a loop coordinator. Write its `LOOP_GATE` into `tickets.<id>.loop.gate`,
+then require `LOOP_GATE.verdict: PASS` recorded there, zero open confirmed
+findings, required validation, and a clean tree. A skipped Spec, a paused loop,
+or an absent verdict blocks the PR: an unwritten gate is a skipped gate, and
+neither a finished loop nor a zero burden says which axes ran.
 
 Before opening the PR, reconcile every acceptance criterion and prove
 `pr-base...HEAD` contains only this ticket. After creation, verify its remote
 head equals the reviewed `HEAD`, its base is `pr-base`, and its URL is recorded,
-then follow `references/pr-stack.md`: wait for checks, mark the PR ready on a
-pass, and pause on a failing check. Set the tracker to `in review` and start the
-next ticket in a new environment. If push or PR creation fails, pause first.
-An older single-branch run instead follows `references/recovery.md`.
+then follow `references/pr-stack.md`: record the checks, mark the PR ready once
+it passes net of `ci_baseline`, and pause on a failing check the ticket broke.
+Set the tracker to `in review` and start the next ticket in a new environment.
+If push or PR creation fails, pause first. An older single-branch run instead
+follows `references/recovery.md`.
 
 ## Finish
 

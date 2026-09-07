@@ -17,11 +17,20 @@ the next transition.
   "tracker": "github",
   "spec": "/path/to/spec.md",
   "validation": "pnpm test && pnpm lint",
-  "budget": { "workers": 12, "minutes": 360 },
+  "repeat_validation": ["1108"],
+  "ci_baseline": {
+    "measured_at": "0123456789abcdef0123456789abcdef01234567",
+    "failing": ["Typecheck, lint, tests", "Runtime adapter contract"]
+  },
+  "budget": { "workers": 12, "minutes": 360, "run_workers": 240, "continuations": 200 },
+  "progress": { "continuations": 3, "since_last_transition": 0 },
+  "relay": { "predecessor": null, "successor": null },
   "notify": {
     "command": "bb notify send",
+    "verified": true,
     "auto_resume_message": "qmsg_abc123",
-    "auto_resume_automation": null
+    "auto_resume_automation": null,
+    "continuation_message": "qmsg_def456"
   },
   "landing": {
     "state": "pending",
@@ -53,7 +62,11 @@ the next transition.
       "workers": [
         { "phase": "implement", "thread": "thr_abc123", "status": "idle", "last_seq": 412, "head": "89abcdef0123456789abcdef0123456789abcdef", "verified": true }
       ],
-      "loop": { "schema": 1, "state": "finished" },
+      "loop": {
+        "schema": 1,
+        "state": "finished",
+        "gate": { "verdict": "PASS", "final_head": "89abcdef0123456789abcdef0123456789abcdef", "open_confirmed_findings": 0 }
+      },
       "criteria": [ { "text": "Users can export CSV", "evidence": "tests/export.test.ts" } ],
       "pr": {
         "url": "https://github.com/org/repo/pull/12",
@@ -83,9 +96,29 @@ Field notes:
   `merged`, or `paused`.
 - `route` is `implement` or `diagnose`.
 - `loop` holds the full `review-fix-loop` ledger object for that ticket.
+  `loop.gate` is the recorded `LOOP_GATE` block. The PR step reads
+  `loop.gate.verdict`, so an absent verdict blocks the PR; `state: finished`
+  alone is not a gate, because it does not say which axes ran.
+- `ci_baseline.failing` lists the checks already failing on the target branch at
+  `measured_at`. A PR failure named there is inherited and never blocks the run.
+- `repeat_validation` lists the tickets whose diff touches time, clocks,
+  concurrency, ordering, or randomness, so their suite is rerun rather than
+  trusted once.
+- `budget.run_workers` and `budget.continuations` cap the whole run, where
+  `workers` and `minutes` cap one ticket.
+- `progress.since_last_transition` counts continuations that recorded nothing.
+  Two in a row pause with `class: decision` and `reason: no_progress`.
+- `relay.successor` is the orchestrator thread that took the run over on a
+  context handoff; `relay.predecessor` is the thread it came from.
+- `notify.verified` records that `notify.command` was probed and ran. An
+  unverified or missing command is `null`, never a plausible name.
+- `notify.continuation_message` is the queued row that continues the turn; it is
+  deleted when the run reaches a terminal state.
 - `criteria[]` records each acceptance criterion with the evidence that
   satisfied it, filled before the PR opens.
-- `pr.checks` is `none`, `pending`, `pass`, or `fail`.
+- `pr.checks` is `none`, `pending`, `pass`, `baseline_fail`, or `fail`.
+  `baseline_fail` means every failure is in `ci_baseline`: the PR goes ready and
+  the inherited failures are reported. Only `fail` blocks.
 - `landing.state` is `pending`, `running`, `paused`, or `landed`;
   `landing.method` is `merge`, `squash`, or `rebase`.
 - `tickets.<id>.landing.environment_state` is `active`, `archived`, or `kept`.

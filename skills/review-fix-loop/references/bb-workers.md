@@ -237,12 +237,73 @@ Count workers from the ledger.
 `bb thread count` and `bb thread list` exclude hidden threads, so neither sees
 these workers without `--include-hidden`, which `count` does not offer.
 
+## Continue the run
+
+A run outlives one turn. Ending a turn is not pausing: a turn that stops with
+work left and nothing queued leaves the run waiting for a human who does not
+know it is waiting.
+
+A turn may end only in a terminal state — `finished`, `landed`, or `paused` with
+`class: decision` — or with a continuation already queued:
+
+```bash
+bb thread tell "$BB_THREAD_ID" 'Continue this run from its ledger.' --mode queue --json
+```
+
+`--mode queue` holds the message on `waitingOn.kind: "thread-busy"` and
+dispatches it when the current turn ends. Queue it as soon as the turn starts
+working, so an interrupted or errored turn still continues, and delete it when
+the turn does reach a terminal state:
+
+```bash
+bb thread queue list "$BB_THREAD_ID" --json
+bb thread queue delete "$BB_THREAD_ID" <id>
+```
+
+Every continuation records at least one ledger transition. Two consecutive
+continuations with no transition pause the run with `class: decision` and
+`reason: no_progress`. A continuation past the run budget pauses with
+`reason: budget`. Both caps exist because a queued continuation is a loop.
+
+## Relay to a successor
+
+One thread cannot hold a long run. Read your own context usage before starting
+another ticket or batch:
+
+```bash
+bb thread log --self --format json --all | jq -r '[.[] | select(.type == "thread/contextWindowUsage/updated")] | last | .data.contextWindowUsage | "\(.usedTokens)/\(.modelContextWindow)"'
+```
+
+Past 70% of `modelContextWindow`, finish the unit of work in flight, hand the
+run to a fresh orchestrator, record its ID as `relay.successor`, tell the user
+which thread continues the run, and stop:
+
+```bash
+bb thread spawn --json --project "$BB_PROJECT_ID" --title "<run> continued" \
+  --file "$LEDGER" --prompt "$CONTINUE_PROMPT"
+```
+
+The ledger is the whole handoff; the successor re-reads it and inherits no
+timeline. Never fork for this: a fork inherits the context that ran out.
+
 ## Pause
 
 Pausing means: write `state: paused` and a `pause` record to the ledger, notify
 the user, report the reason with its evidence, and end the turn. Leave workers,
 environments, and branches as they are. Resume reconciles the ledger before the
 next transition.
+
+The record carries exactly these keys, and `class` is never omitted:
+
+```json
+{ "class": "decision", "reason": "<short slug>", "ticket": "<id or null>",
+  "worker": "<thread id or null>", "evidence": "<path or command output>",
+  "next_action": "<the one command that continues the run>",
+  "auto_resume_count": 0 }
+```
+
+A pause written without `class` is a `decision` pause: an unclassified stall
+reaches nobody and clears itself never.
 
 Classify every pause, because the class decides who clears it:
 
@@ -272,9 +333,11 @@ Find a notification command once per run and record it as `notify.command`:
 bb plugin list | grep -E '^\s+command: bb (notify|ntfy|telegram-agent|push-notifications)'
 ```
 
-Only a running plugin prints a `command:` line, so a match is usable. Send one
-line on a `decision` pause, on a landed stack, and on a finished run: the run,
-the reason, and the exact command that continues it.
+Only a running plugin prints a `command:` line. Probe the match once before
+trusting it and record `notify.verified`; a command that does not run is no
+notification, so record `notify.command: null` instead of a name that silently
+drops every message. Send one line on a `decision` pause, on a landed stack, and
+on a finished run: the run, the reason, and the exact command that continues it.
 With no such command, the thread report is the notification: BB already raises
 the thread's unread and attention state, so keep the first line of the report
 scannable. A server-side send grants no browser or OS permission; if the user
