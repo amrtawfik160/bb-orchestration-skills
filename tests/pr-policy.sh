@@ -6,7 +6,9 @@ set -euo pipefail
 # the stack must survive squash merges, failing checks, and review comments.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
+orchestrator_prompts="$repo_root/skills/orchestrate-implementation/references/worker-prompts.md"
 stack="$repo_root/skills/orchestrate-implementation/references/pr-stack.md"
+land="$repo_root/skills/land-stack/SKILL.md"
 loop="$repo_root/skills/review-fix-loop/SKILL.md"
 readme="$repo_root/README.md"
 failed=0
@@ -48,7 +50,7 @@ require_phrase "$orchestrator" 'spawns only'
 require_phrase "$orchestrator" 'those phase workers'
 require_phrase "$orchestrator" 'next gets a new'
 require_phrase "$orchestrator" 'branch and environment'
-require_phrase "$orchestrator" 'Opening a draft PR and pushing its ticket branch are part'
+require_phrase "$orchestrator" 'Opening a draft PR and pushing its branch are this'
 require_phrase "$orchestrator" 'open or `in review` until its PR merges'
 require_phrase "$orchestrator" 'implicit cumulative implementation or final mega-PR'
 require_phrase "$orchestrator" 'first ticket branches from the target branch'
@@ -62,8 +64,8 @@ require_phrase "$orchestrator" 'Set the tracker to `in review`'
 require_phrase "$orchestrator" 'push or PR creation fails, pause'
 require_phrase "$orchestrator" 'Every accepted'
 require_phrase "$orchestrator" 'ticket must have one PR URL'
-require_phrase "$orchestrator" 'For the body use /show-me'
-require_phrase "$orchestrator" 'gh pr create --draft'
+require_phrase "$orchestrator_prompts" 'For the body use /show-me'
+require_phrase "$orchestrator_prompts" 'gh pr create --draft'
 
 # Cumulative-run recovery moved to its own reference and must stay intact.
 recovery="$repo_root/skills/orchestrate-implementation/references/recovery.md"
@@ -79,9 +81,22 @@ reject_pattern "$orchestrator" 'mark it complete through the tracker'
 reject_pattern "$orchestrator" 'Push, PR, merge, deploy, archive, and cleanup require separate requests'
 
 # Stack maintenance after a PR opens.
-require_pattern "$stack" 'gh pr checks "\$URL" --watch --fail-fast'
+# Checks are swept, never watched: CI outlives the turn that opened the PR.
+require_pattern "$stack" 'gh pr view "\$URL" --json statusCheckRollup'
+require_pattern "$stack" 'Never use `gh pr checks --watch` here'
+reject_pattern "$stack" 'gh pr checks "\$URL" --watch'
+require_pattern "$stack" 'The check sweep'
+require_pattern "$stack" 'No PR stays recorded as'
 require_pattern "$stack" 'gh pr ready'
-require_pattern "$stack" 'checks: none'
+require_pattern "$stack" '`none`'
+
+# A red target branch is inherited, not caused, and must not strand the stack.
+require_pattern "$stack" '## The CI baseline'
+require_pattern "$stack" 'select\(.conclusion == "failure"\)'
+require_pattern "$stack" 'baseline_fail'
+require_pattern "$stack" 'never blocks this run|inherited, not caused'
+require_pattern "$orchestrator" 'ci_baseline'
+require_pattern "$land" 'outside the run.s `ci_baseline`'
 require_pattern "$stack" 'git merge-base --is-ancestor "\$PARENT_ACCEPTED_HEAD" "origin/\$TARGET"'
 require_phrase "$stack" 'squash or rebase merge rewrote'
 require_pattern "$stack" 'git rebase --onto origin/<target> <parent-accepted-head> <child-branch>'

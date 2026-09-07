@@ -100,7 +100,8 @@ The skills stay short because the mechanics live in reference files:
 | `review-fix-loop/references/worker-footer.md` | The `WORKER_RESULT` footer every worker ends with, attached to each spawn |
 | `review-fix-loop/references/ledger.md` | Loop ledger schema under `$BB_THREAD_STORAGE` |
 | `orchestrate-implementation/references/ledger.md` | Run ledger schema, including per-phase provider and model choices and landing state |
-| `orchestrate-implementation/references/pr-stack.md` | Checks, ready state, squash-merge rebases, review comments, merge order |
+| `orchestrate-implementation/references/pr-stack.md` | CI baseline, the check sweep, ready state, squash-merge rebases, review comments, merge order |
+| `orchestrate-implementation/references/worker-prompts.md` | The implementation, diagnosis, and pull request prompts |
 | `orchestrate-implementation/references/recovery.md` | Rebuilding a stack from an older single-branch run |
 | `codebase-docs-cleanup/references/inventory.md` | Classification classes, evidence table, and the keep/trim/merge/delete decision rules |
 | `codebase-docs-cleanup/references/pruning.md` | The five prose tests, `AGENTS.md` rules, navigation pointers, and code-readability limits |
@@ -139,6 +140,14 @@ The skills stay short because the mechanics live in reference files:
 - Every pause classified. Rate limits and other transient stalls clear
   themselves through a scheduled resume; only real decisions reach you, with the
   command that continues the run.
+- A run that crosses turns without you. Every turn ends in a terminal state or
+  with its continuation already queued, and hands off to a fresh orchestrator
+  before context runs out.
+- A CI baseline taken before the first ticket, so a repository whose default
+  branch is already red does not read as a red ticket and strand the stack.
+- A review gate that must be written down. The PR step reads the recorded
+  verdict, so a gate that was never recorded blocks the PR instead of passing
+  silently.
 - Merges in stack order, with cleanup gated on a merge confirmed at the remote.
 - One approved tracer-bullet ticket per implementation or diagnosis thread,
   with the parent Spec left unchanged.
@@ -151,6 +160,17 @@ depends on each ticket branching from the previous accepted head. Parallel
 tickets would each branch from the target and need a merge step to reconcile,
 which is the cumulative integration this workflow avoids. Serial order also
 keeps one review gate and one validation run per ticket.
+
+Parallelism would not buy much anyway. The orchestrator verifies every worker
+claim in the worktree and reruns validation itself, so its own context is the
+bottleneck, not wall-clock. A 19-ticket run measured 496K of 1M tokens across
+eight tickets: running them concurrently would spend the same context sooner and
+make the ledger harder to keep consistent. Throughput comes from turn
+continuation and the successor relay, which let one run cross as many turns and
+threads as it needs, not from more workers at once.
+
+Read-only workers are the exception. Anything that never writes may fan out,
+which is why `codebase-docs-cleanup` inventories subsystems in parallel.
 
 ## Requirements
 
