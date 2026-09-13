@@ -1,3 +1,12 @@
+# Shared-checkout PR identity
+
+With `execution.shared_checkout: true`, resolve each PR by its recorded URL,
+branch, accepted head, and base. One BB environment may serve many ticket PRs;
+its currently associated PR is contextual, not proof for historical tickets.
+Run branch integration serially after every worker is quiescent. Preserve the
+shared checkout and all branches required by downstream PRs during landing.
+Use the gate and rebase/retarget rules below without per-ticket retirement.
+
 # Pull request stack
 
 ```text
@@ -88,12 +97,13 @@ git merge-base --is-ancestor "$PARENT_ACCEPTED_HEAD" "origin/$TARGET" \
   `gh pr edit "$CHILD_URL" --base "$TARGET"`, then prove one ticket as below.
 - `rebase` (squash or rebase merge rewrote the parent's commits): the child
   still carries the parent's original commits, so a direct retarget would show
-  both tickets. Spawn a fresh worker in the child's environment:
+  both tickets. In shared mode, stop workers and perform this rebase serially
+  in the existing checkout. In BB-thread mode, use the child's environment:
 
   ```text
   Rebase <child-branch> onto origin/<target>, dropping the commits merged from <parent-branch>:
   git rebase --onto origin/<target> <parent-accepted-head> <child-branch>
-  Stop and report any conflict instead of guessing. Validate, then push with --force-with-lease.
+  Resolve routine scope-preserving conflicts; pause only for an unresolved scope or user decision. Review changed semantics, validate, then push with --force-with-lease.
   End with the attached WORKER_RESULT footer.
   ```
 
@@ -109,8 +119,11 @@ git diff "$OLD_BASE" "$OLD_HEAD" | git patch-id --stable | cut -d' ' -f1
 git diff "origin/$TARGET...$CHILD_BRANCH" | git patch-id --stable | cut -d' ' -f1
 ```
 
-Equal IDs prove the diff is unchanged. Different IDs, a conflict, or a diff
-that touches another ticket's scope pauses with the evidence.
+Equal IDs show patch equivalence, not a substitute for required validation.
+Different IDs require inspecting the actual integrated diff: resolve routine
+conflicts, rerun affected review and local gates, and record the new evidence.
+Pause only when scope cannot be preserved or a decision belongs to the user;
+never silently accept changes belonging to another ticket.
 
 ## When an earlier ticket changes after review
 
@@ -134,5 +147,6 @@ and the stack below rebases as above.
 ## Merging
 
 `land-stack` merges the whole stack oldest first, closes each ticket, and
-archives each environment. It runs the parent-merge procedure above for every
+archives isolated environments only in BB-thread mode. Shared mode preserves
+the owner thread and checkout. It runs the parent-merge procedure above for every
 child before merging it.

@@ -133,3 +133,20 @@ Field notes:
   its worker to visible also carries `"promoted_worker": true`.
 - The run also stores every worker's saved output and both review reports
   under `$BB_THREAD_STORAGE/orchestrate-implementation/<ticket>/`.
+
+## In-thread execution records
+
+Follow `../review-fix-loop/references/subagents.md` from the skill directory
+(`references/subagents.md` for review-fix-loop). Add `execution.mode`,
+`execution.owner_thread`, `execution.environment`, `execution.worktree`, and
+`execution.shared_checkout`. Native workers record `backend: subagents`,
+`agent_id`, `agent_session`, `lease`, phase/status, pinned base/head, verified
+result, and a durable output path. These are distinct from legacy `thread`
+and `last_seq` fields; keep those unchanged as historical evidence.
+
+Missing native handles after compaction/provider restart become stale pending
+Git/result reconciliation. Restart only unfinished phases. A legacy ledger
+without an execution mode is not silently migrated: reconcile the user's
+constraint, preserve its old worker records, then record the chosen mode.
+A shared checkout persists across tickets and landing. Native execution never
+sets a relay successor or retires the owner's environment.

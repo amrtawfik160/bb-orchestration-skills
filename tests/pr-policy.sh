@@ -46,10 +46,11 @@ reject_pattern() {
 }
 
 require_phrase "$orchestrator" 'One ticket owns one'
-require_phrase "$orchestrator" 'spawns only'
-require_phrase "$orchestrator" 'those phase workers'
-require_phrase "$orchestrator" 'next gets a new'
-require_phrase "$orchestrator" 'branch and environment'
+require_phrase "$orchestrator" 'Default to native sub-agents'
+require_phrase "$orchestrator" 'one shared checkout'
+require_pattern "$orchestrator" 'references/subagents.md'
+require_phrase "$repo_root/skills/review-fix-loop/references/subagents.md" 'one-ticket diffs'
+require_phrase "$repo_root/skills/review-fix-loop/references/subagents.md" 'shared BB environment.s PR association cannot identify'
 require_phrase "$orchestrator" 'Opening a draft PR and pushing its branch are this'
 require_phrase "$orchestrator" 'open or `in review` until its PR merges'
 require_phrase "$orchestrator" 'implicit cumulative implementation or final mega-PR'

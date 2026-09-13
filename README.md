@@ -7,10 +7,17 @@ inside BB. They coordinate his `/to-spec`, `/to-tickets`, `/implement`, `/tdd`,
 and `/code-review` flow, and route hard defect tickets through
 `/diagnosing-bugs`. Matt's skills still do the underlying work.
 
-Tickets run serially. Each ticket gets its own branch, managed worktree,
-review-fix gate, and pull request. Each worker gets one job in a fresh thread
-with access only to that ticket's worktree. During review, Matt's `/code-review`
-starts its required independent Standards and Spec subagents.
+Tickets run serially in one persistent BB thread and one existing checkout.
+Native sub-agents handle bounded phases; Standards and Spec review the same
+frozen commit independently. Only one writer may operate at a time. Each ticket
+keeps its own branch and PR. A provider without native agent tools can continue
+serial work directly, but cannot claim an unavailable independent-review gate.
+
+The BB CLI still supplies context, queues, and durable thread state. Agent
+spawn/wait/message tools come from the active provider; there is no invented
+`bb subagent` command. Separate BB worker threads and ticket worktrees are an
+explicit alternative, not an automatic fallback. Shared environments survive
+landing, and continuation stays in the owner thread.
 
 The orchestrator runs `review-fix-loop` directly. That skill starts the fresh
 review, verification, and fix workers, so there is no nested coordinator.
@@ -23,9 +30,18 @@ result. The `/code-review` guide warns that repeated reviews are
 nondeterministic and may not converge.
 
 Once every ticket is accepted, `land-stack` merges the pull requests oldest
-first, closes the tickets, and removes the worktrees.
+first and closes the tickets. It preserves the persistent shared checkout.
+Per-ticket worktree retirement applies only to the explicit BB-thread mode.
 
-![One ticket to one PR to merged, one BB worker at a time. Per ticket: a fresh branch and worktree, implement or diagnose, one review across Standards and Spec, then a draft PR whose checks must go green before it is marked ready. Findings go through verify, fix, and a closure check before reaching the PR. The next ticket starts from the accepted head. At the end, land-stack merges the stack oldest first, closes each ticket, and removes each worktree.](assets/bb-orchestration-workflow-v6.png)
+```mermaid
+flowchart LR
+    T[Persistent BB thread] --> I[One ticket branch]
+    I --> W[Serial implementation or fix]
+    W --> R[Fresh Standards and Spec sub-agents]
+    R --> P[One reviewed PR]
+    P --> N[Next branch in the same checkout]
+    N --> I
+```
 
 ## Skills
 
@@ -35,10 +51,10 @@ Processes an approved ticket graph one ticket at a time, following its blocker
 frontier. Planned work and known fixes use `/implement`; hard, unexplained,
 intermittent, and performance defects use `/diagnosing-bugs`. Each ticket is
 reviewed, its confirmed findings are fixed, and one draft PR is pushed before
-the next ticket starts in a new environment. Later PRs stack on the previous
+the next ticket starts on its own branch in the shared checkout. Later PRs stack on the previous
 ticket branch, so each PR keeps a one-ticket diff.
 
-The PR worker opens the draft PR itself with `gh` and builds the body from
+The parent opens the draft PR and builds the body from
 `/show-me`: the smallest diagram, call tree, or diff shape that shows what the
 ticket changed, plus two sentences of context.
 
@@ -52,7 +68,8 @@ instead of running a new review.
 ### `land-stack`
 
 Ends the run. It merges the PR stack oldest first, closes each ticket, and
-archives each ticket environment, which removes its worktree and branch. Every
+preserves the shared environment. In explicit BB-thread mode it can retire
+isolated ticket worktrees after their merges. Every
 PR is gated on green checks and a head that still matches the reviewed one, and
 each child is retargeted or rebased onto the target branch before it merges.
 Landing stops at the first PR that cannot merge; whatever already merged stays
@@ -188,9 +205,9 @@ which is why `codebase-docs-cleanup` inventories subsystems in parallel.
 - A configured issue tracker through `/setup-matt-pocock-skills`.
 
 `/to-spec`, `/to-tickets`, `/implement`, and `/ask-matt` are user-invoked.
-The orchestrator consumes approved planning artifacts and gives each spawned BB
-thread its own slash-command prompt. It does not model-invoke those skills in
-its own context. `/ask-matt` remains a router, not a workflow step.
+The orchestrator consumes approved planning artifacts and gives each native
+worker a bounded task with accessible skill sources. Native task text does not
+automatically expand BB slash commands. `/ask-matt` remains a router, not a workflow step.
 
 ## Install
 
@@ -234,7 +251,7 @@ The unattended path is one command:
 ```
 
 That implements every ticket, reviews and fixes each one, opens the PR stack,
-merges it oldest first, closes the tickets, and removes the worktrees. It stops
+merges it oldest first, closes the tickets, and preserves the shared checkout. It stops
 only for a decision it cannot make.
 
 The individual entry points:

@@ -1,3 +1,12 @@
+# Shared-checkout recovery first
+
+For `execution.shared_checkout: true`, use the resume protocol in
+`../../review-fix-loop/references/subagents.md`: reconcile preserved ticket
+refs/PRs and dirty state in the same checkout, mark unavailable native handles
+stale, and restart only unfinished phases. Do not create another thread or
+worktree, revive archived predecessors, or combine per-ticket PRs. The legacy
+single-branch procedures below are not permission to override this mode.
+
 # Cumulative-run recovery
 
 Older runs put every accepted ticket on one branch and opened one PR. When the

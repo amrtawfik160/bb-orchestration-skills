@@ -1,14 +1,21 @@
 ---
 name: land-stack
-description: "Merge a finished ticket pull request stack oldest first, close each ticket, and archive its environment. Use when an orchestrator finishes a run with --land, when the user asks to land, merge, or ship a finished stack, or to clean up worktrees after merging."
+description: "Merge a finished ticket pull request stack oldest first, close each ticket, and preserve a shared orchestration environment. Use when an orchestrator finishes a run with --land, when the user asks to land, merge, or ship a finished stack, or to clean up worktrees after merging."
 argument-hint: "[run ledger path] [--method merge|squash|rebase] [--require-approvals] [--keep-environments] | resume"
 ---
 
 # Land Stack
 
+Read `../review-fix-loop/references/subagents.md` first. Default to native sub-agents
+in this BB thread and one shared checkout; use its direct fallback if needed.
+That protocol overrides worker/workspace/relay/cleanup instructions below;
+BB-thread operations apply only to explicitly selected `bb-threads` mode.
+Keep all ticket, review, validation, and PR gates in either mode.
+
+
 Take a finished `orchestrate-implementation` run from "every ticket has a
-draft PR" to "every PR is merged, every issue is closed, every worktree is
-gone". Landing is one-way, so each step proves its precondition before acting.
+draft PR" to "every PR is merged and every issue is closed". Keep the shared
+checkout; only explicitly isolated ticket environments may be retired. Landing is one-way, so each step proves its precondition before acting.
 
 ## Contract
 
@@ -18,7 +25,8 @@ gone". Landing is one-way, so each step proves its precondition before acting.
   green checks are the review. Say so in the report.
 - Stop at the first PR that cannot merge. Merged tickets stay merged; the run
   pauses with the ledger and evidence, and `resume` continues from the next.
-- Archive a ticket environment only after its merge is confirmed on the remote.
+- Never archive the shared owner environment. An isolated ticket environment
+  in `bb-threads` mode may be archived only after its merge is confirmed on the remote.
 - Work from the ledger: read `run.json`, write every transition.
 
 ## References

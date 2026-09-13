@@ -68,3 +68,20 @@ Field notes:
   `$BB_THREAD_STORAGE`.
 - `workers[].last_seq` is the highest thread-log event sequence already read for
   that worker; the next wait window pages from it with `--after-seq`.
+
+## In-thread execution records
+
+Follow `../review-fix-loop/references/subagents.md` from the skill directory
+(`references/subagents.md` for review-fix-loop). Add `execution.mode`,
+`execution.owner_thread`, `execution.environment`, `execution.worktree`, and
+`execution.shared_checkout`. Native workers record `backend: subagents`,
+`agent_id`, `agent_session`, `lease`, phase/status, pinned base/head, verified
+result, and a durable output path. These are distinct from legacy `thread`
+and `last_seq` fields; keep those unchanged as historical evidence.
+
+Missing native handles after compaction/provider restart become stale pending
+Git/result reconciliation. Restart only unfinished phases. A legacy ledger
+without an execution mode is not silently migrated: reconcile the user's
+constraint, preserve its old worker records, then record the chosen mode.
+A shared checkout persists across tickets and landing. Native execution never
+sets a relay successor or retires the owner's environment.
