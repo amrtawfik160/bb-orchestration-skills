@@ -1,3 +1,14 @@
+# Select worker execution first
+
+For the default in-thread mode, read `subagents.md`. Its provider-native tools,
+shared checkout, same-thread continuation, and cleanup rules replace all
+BB-thread lifecycle procedures in this file. An absent native tool does not
+authorize creating a BB thread. Existing authorization and recorded mode win.
+
+The remainder of this file is the explicitly selected `bb-threads` backend.
+Do not apply its per-worker thread IDs, worktree allocation, relay threshold,
+project-wide watchdog example, or archive operations to native sub-agents.
+
 # BB worker protocol
 
 One fresh worker per phase, parented to the orchestrator, one at a time. This

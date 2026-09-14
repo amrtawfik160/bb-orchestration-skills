@@ -1,10 +1,17 @@
 ---
 name: codebase-docs-cleanup
-description: "Clean a codebase in fresh BB workers using Matt Pocock's code-first documentation approach: audit or prune redundant docs, slim AGENTS.md and CLAUDE.md, preserve decisions and domain knowledge, and make code easier for agents to navigate. Use for an explicit code-first cleanup request, not routine feature work."
+description: "Clean a codebase with in-thread sub-agents using Matt Pocock's code-first documentation approach: audit or prune redundant docs, slim AGENTS.md and CLAUDE.md, preserve decisions and domain knowledge, and make code easier for agents to navigate. Use for an explicit code-first cleanup request, not routine feature work."
 argument-hint: "<repo path or subsystem> [--audit] [--apply] | resume | status"
 ---
 
 # Code-first cleanup
+
+Read `../review-fix-loop/references/subagents.md` first. Default to native sub-agents
+in this BB thread and one shared checkout; use its direct fallback if needed.
+That protocol overrides worker/workspace/relay/cleanup instructions below;
+BB-thread operations apply only to explicitly selected `bb-threads` mode.
+Keep all ticket, review, validation, and PR gates in either mode.
+
 
 Make the implementation the source of truth for current behavior. Make code
 discoverable and understandable instead of maintaining a prose mirror of it.
@@ -16,8 +23,9 @@ arbitrary source files, redesign the product, or change behavior.
 
 ## Contract
 
-- Work in one managed BB worktree at a pinned base. The source checkout is never
-  touched, so discarding the branch reverts the whole run.
+- Work in one recorded checkout at a pinned base. Reuse the current checkout
+  in sub-agent mode and preserve pre-existing edits. Creating a managed
+  worktree is an explicit BB-thread-mode operation, subject to user scope.
 - Inventory and navigation workers are read-only and run in parallel; they leave
   `HEAD` and the tree exactly as they found them. Every mutating batch is one
   serial worker, verified before the next one starts.
@@ -27,6 +35,10 @@ arbitrary source files, redesign the product, or change behavior.
   repository.
 - No deletion quota, target file count, or line limit. Success is less competing
   context carrying the same useful knowledge and behavior.
+
+In explicit `bb-threads` mode, use one managed BB worktree at a pinned base.
+The source checkout is never touched; discarding the branch reverts that
+isolated run. This does not permit deleting the persistent native-mode checkout.
 
 ## References
 

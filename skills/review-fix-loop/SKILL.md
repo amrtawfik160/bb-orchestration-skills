@@ -1,15 +1,17 @@
 ---
 name: review-fix-loop
-description: "Review and fix a committed diff through fresh BB workers. Use when an orchestrator needs a code-review gate before opening a pull request, when the user invokes the loop directly, or when pull request review comments must be verified and fixed."
+description: "Review and fix a committed diff through fresh in-thread sub-agents (or explicitly selected BB workers). Use when an orchestrator needs a code-review gate before opening a pull request, when the user invokes the loop directly, or when pull request review comments must be verified and fixed."
 argument-hint: "<fixed-point> [spec or ticket reference] [--from-pr <url>]"
 ---
 
 # Review Fix Loop
 
-```text
-review once -> no findings -> finish
-            -> findings -> verify -> fix -> verify closure -> finish or pause
-```
+Read `references/subagents.md` first. Default to native sub-agents
+in this BB thread and one shared checkout; use its direct fallback if needed.
+That protocol overrides worker/workspace/relay/cleanup instructions below;
+BB-thread operations apply only to explicitly selected `bb-threads` mode.
+Keep all ticket, review, validation, and PR gates in either mode.
+
 
 ## Contract
 
@@ -24,10 +26,8 @@ review once -> no findings -> finish
 
 ## References
 
-Follow `references/bb-workers.md` for spawning, waiting, interactions, result
-parsing, verification, budgets, and pausing. Attach
-`references/worker-footer.md` to every worker. Keep the ledger described in
-`references/ledger.md`.
+Use `references/bb-workers.md` only for BB-thread mode. Attach
+`references/worker-footer.md`; keep `references/ledger.md` after each transition.
 
 ## Prepare
 

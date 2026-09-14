@@ -3,8 +3,9 @@
 Path: `$BB_THREAD_STORAGE/codebase-docs-cleanup/run.json`. Write it after every
 transition: a frozen baseline, a spawn, an idle worker, a merged inventory, a
 plan, a verified batch, a navigation check, a pause. `resume`, or an existing
-ledger at start, reconciles every recorded SHA, thread, and path against Git and
-`bb thread show` before the next transition.
+ledger at start, reconciles every recorded SHA, worker, and path against Git
+and the recorded execution backend before the next transition. Use native
+agent tools for native handles and `bb thread show` only for BB-thread workers.
 
 ```json
 {
@@ -102,3 +103,25 @@ Field notes:
   where `class` is `transient` or `decision`.
 - The run also stores each worker's saved output, the merged inventory, and the
   plan under `$BB_THREAD_STORAGE/codebase-docs-cleanup/`.
+
+## Native execution and legacy migration
+
+For the default shared checkout, follow
+`../../review-fix-loop/references/subagents.md`. Add `execution` with `mode`,
+`owner_thread`, `environment`, `worktree`, and `shared_checkout`. The example
+above illustrates historical BB-thread records; preserve them during migration.
+
+Store workers in a `workers` registry keyed by a stable local record ID. Each
+record contains `backend`, `agent_id`, `agent_session`, `phase`, `lease`,
+`status`, `base`, `head`, `verified`, and a durable `output` path. New
+`partitions[].worker`, `batches[].worker`, and `navigation_checks[].worker`
+values reference this registry; they are not implicitly BB thread IDs. Keep
+historical `thr_*` values and `last_seq` as BB-thread evidence. Never pass a
+native handle to a BB thread command.
+
+On resume, reconcile Git and saved reports, then inspect the recorded backend.
+Missing native session handles are stale: preserve their evidence, reconcile
+partial edits, and restart only unfinished phases in fresh isolated contexts.
+Do not revive archived predecessors or repeat accepted batches. Shared mode
+records out-of-scope dirty/untracked files in place and preserves them; it does
+not create a managed checkout to exclude them.
