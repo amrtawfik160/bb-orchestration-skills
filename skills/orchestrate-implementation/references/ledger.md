@@ -30,6 +30,7 @@ the next transition.
     "verified": true,
     "auto_resume_message": "qmsg_abc123",
     "auto_resume_automation": null,
+    "watchdog_automation": "auto_ghi789",
     "continuation_message": "qmsg_def456"
   },
   "landing": {
@@ -37,6 +38,10 @@ the next transition.
     "method": "merge",
     "require_approvals": false,
     "keep_environments": false
+  },
+  "verification": {
+    "state": "pending",
+    "smoke": "pnpm test:smoke"
   },
   "phases": {
     "implement": { "provider": "claude-code", "model": null },
@@ -60,7 +65,7 @@ the next transition.
       "accepted_head": "89abcdef0123456789abcdef0123456789abcdef",
       "started_at": "2026-09-03T10:00:00Z",
       "workers": [
-        { "phase": "implement", "thread": "thr_abc123", "status": "idle", "last_seq": 412, "head": "89abcdef0123456789abcdef0123456789abcdef", "verified": true }
+        { "phase": "implement", "thread": "thr_abc123", "status": "idle", "head": "89abcdef0123456789abcdef0123456789abcdef", "verified": true }
       ],
       "loop": {
         "schema": 1,
@@ -82,6 +87,13 @@ the next transition.
         "merged_at": null,
         "issue_state": "open",
         "environment_state": "active"
+      },
+      "verification": {
+        "state": "pending",
+        "checks": "none",
+        "smoke": null,
+        "response": null,
+        "verified_at": null
       }
     }
   },
@@ -122,31 +134,31 @@ Field notes:
 - `landing.state` is `pending`, `running`, `paused`, or `landed`;
   `landing.method` is `merge`, `squash`, or `rebase`.
 - `tickets.<id>.landing.environment_state` is `active`, `archived`, or `kept`.
-- `workers[].last_seq` is the highest thread-log event sequence already read for
-  that worker; the next wait window pages from it with `--after-seq`.
+- `verification.state` is `pending`, `running`, `paused`, or `verified`.
+  `tickets.<id>.verification.checks` reads like `pr.checks`, `smoke` is
+  `pass`, `fail`, or `null`, and `response` records the red-main path taken
+  with its revert PR or fix ticket.
 - `notify.auto_resume_message` is the scheduled resume queued on this thread;
   `notify.auto_resume_automation` is set only when a run uses the repeating
   automation instead. At most one of the two is non-null.
+- `notify.watchdog_automation` is the script automation that re-arms this
+  thread when it is idle with an empty queue while `state` is `running`. It is
+  deleted when no run of the project is `running`.
 - `pause` is
   `{ "class", "reason", "ticket", "worker", "evidence", "next_action", "auto_resume_count" }`,
-  where `class` is `transient` or `decision`. A `decision` pause that promoted
-  its worker to visible also carries `"promoted_worker": true`.
+  where `class` is `transient` or `decision`.
 - The run also stores every worker's saved output and both review reports
   under `$BB_THREAD_STORAGE/orchestrate-implementation/<ticket>/`.
 
-## In-thread execution records
+## Execution records
 
-Follow `../review-fix-loop/references/subagents.md` from the skill directory
-(`references/subagents.md` for review-fix-loop). Add `execution.mode`,
-`execution.owner_thread`, `execution.environment`, `execution.worktree`, and
-`execution.shared_checkout`. Native workers record `backend: subagents`,
-`agent_id`, `agent_session`, `lease`, phase/status, pinned base/head, verified
-result, and a durable output path. These are distinct from legacy `thread`
-and `last_seq` fields; keep those unchanged as historical evidence.
-
-Missing native handles after compaction/provider restart become stale pending
-Git/result reconciliation. Restart only unfinished phases. A legacy ledger
-without an execution mode is not silently migrated: reconcile the user's
-constraint, preserve its old worker records, then record the chosen mode.
-A shared checkout persists across tickets and landing. Native execution never
-sets a relay successor or retires the owner's environment.
+Default `execution.mode` is `bb-threads`: one visible BB thread per phase and
+one chained worktree per ticket. Each worker records `thread`,
+phase/status, pinned base/head, verified result, and a durable output path.
+The single-thread alternative in
+`../review-fix-loop/references/subagents.md` applies only on explicit user
+request; its native workers record `backend: subagents`, `agent_id`,
+`agent_session`, and `lease` instead of BB thread fields. A ledger without an
+execution mode predates the record and reconciles as `bb-threads` unless the
+user constrains otherwise. Only `bb-threads` runs set a relay successor and
+retire per-ticket environments at landing.

@@ -1,21 +1,15 @@
 ---
 name: land-stack
-description: "Merge a finished ticket pull request stack oldest first, close each ticket, and preserve a shared orchestration environment. Use when an orchestrator finishes a run with --land, when the user asks to land, merge, or ship a finished stack, or to clean up worktrees after merging."
+description: "Merge a finished ticket pull request stack oldest first, close each ticket, and retire each ticket worktree after its merge. Use when the user asks to land, merge, or ship a finished stack, or to clean up worktrees after merging."
 argument-hint: "[run ledger path] [--method merge|squash|rebase] [--require-approvals] [--keep-environments] | resume"
 ---
 
 # Land Stack
 
-Read `../review-fix-loop/references/subagents.md` first. Default to native sub-agents
-in this BB thread and one shared checkout; use its direct fallback if needed.
-That protocol overrides worker/workspace/relay/cleanup instructions below;
-BB-thread operations apply only to explicitly selected `bb-threads` mode.
-Keep all ticket, review, validation, and PR gates in either mode.
-
-
 Take a finished `orchestrate-implementation` run from "every ticket has a
-draft PR" to "every PR is merged and every issue is closed". Keep the shared
-checkout; only explicitly isolated ticket environments may be retired. Landing is one-way, so each step proves its precondition before acting.
+draft PR" to "every PR is merged and every issue is closed". Each ticket keeps
+its own chained worktree until its merge is confirmed on the remote, then its
+environment is retired. Landing is one-way, so each step proves its precondition before acting.
 
 ## Contract
 
@@ -25,15 +19,14 @@ checkout; only explicitly isolated ticket environments may be retired. Landing i
   green checks are the review. Say so in the report.
 - Stop at the first PR that cannot merge. Merged tickets stay merged; the run
   pauses with the ledger and evidence, and `resume` continues from the next.
-- Never archive the shared owner environment. An isolated ticket environment
-  in `bb-threads` mode may be archived only after its merge is confirmed on the remote.
+- Archive a ticket environment only after its merge is confirmed on the remote.
 - Work from the ledger: read `run.json`, write every transition.
 
 ## References
 
-Follow `../review-fix-loop/references/bb-workers.md` for pausing, notification,
-auto-resume, and its GitHub section: prefer the `gh-axi` skill over raw `gh`,
-reading current syntax from the CLI. The `gh` commands below define what must
+Follow `../review-fix-loop/references/bb-workers.md` for continuation, pausing, notification,
+auto-resume, and its GitHub section; prefer the `gh-axi` skill over raw `gh`, reading
+current syntax from the CLI. The `gh` commands below define what must
 be true, not which binary runs it. Use
 `../orchestrate-implementation/references/pr-stack.md` to bring each child onto
 the target branch. The ledger schema is
@@ -70,8 +63,10 @@ For the oldest unmerged ticket in `order`:
 
    Require `baseRefName` equal to the target, `headRefOid` equal to
    `accepted_head`, `mergeable: MERGEABLE`, and no failing check
-   outside the run's `ci_baseline`. A check that already failed on the target
-   branch when the run started is inherited, not caused: report it and merge.
+   outside the run's `ci_baseline` or the loop quarantine. A check that already
+   failed on the target branch when the run started is inherited, not caused:
+   report it and merge. A failure matching a quarantined entry is reported
+   with its ticket and merges the same way.
    A run whose ledger has no `ci_baseline` measures one now against the target
    branch rather than treating a red repository as a blocked stack. With
    `--require-approvals`, also require `reviewDecision: APPROVED` and zero
@@ -126,4 +121,5 @@ review decision that blocks pauses the landing. Nothing merged is undone.
 
 Report each ticket with its PR, merge commit, issue state, and environment
 state, plus the merge method and whether approvals were required. Set
-`state: landed` in the ledger.
+`state: landed` in the ledger. Then invoke `/verify-landing <ledger path>`:
+landing proves the merges, verification proves the target.

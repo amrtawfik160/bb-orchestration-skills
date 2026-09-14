@@ -71,6 +71,18 @@ for skill in "$orchestrator" "$loop"; do
   fi
 done
 
+# Disclosed prompt files carry the same size budget as inline prompts.
+check_prompt_size "$repo_root/skills/codebase-docs-cleanup/references/worker-prompts.md"
+
+# The worker protocol stays a single linear read; growth past this budget must
+# earn a split instead of accreting.
+protocol_lines=$(wc -l <"$protocol")
+if (( protocol_lines > 550 )); then
+  printf 'FAIL %s: %s lines exceeds worker-protocol budget\n' \
+    "${protocol#"$repo_root"/}" "$protocol_lines"
+  failed=1
+fi
+
 require_pattern "$loop" 'one orchestrator-spawned BB worker'
 require_pattern "$loop" 'Do not invoke /code-review or spawn additional agents'
 require_pattern "$loop" '^/code-review <base>$'

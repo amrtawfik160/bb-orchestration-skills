@@ -34,9 +34,10 @@ require_pattern "$protocol" 'the exact command that continues it'
 require_pattern "$protocol" 'With no such'
 require_pattern "$protocol" 'the thread report is the notification'
 
-# A decision pause must be reachable: workers are hidden by default.
-require_pattern "$protocol" 'the user cannot reach one from the sidebar'
-require_pattern "$protocol" 'surface it and record the promotion'
+# A decision pause must be reachable: workers are visible by default.
+require_pattern "$protocol" 'Workers are visible, so the user can reach one from the sidebar'
+require_pattern "$protocol" 'blames a specific worker, open it'
+require_pattern "$protocol" 'bb thread open "\$WORKER"'
 
 require_pattern "$protocol" '## Auto-resume'
 require_pattern "$protocol" 'leaves nothing to clean up'

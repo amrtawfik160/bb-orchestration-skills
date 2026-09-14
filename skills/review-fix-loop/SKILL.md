@@ -1,24 +1,20 @@
 ---
 name: review-fix-loop
-description: "Review and fix a committed diff through fresh in-thread sub-agents (or explicitly selected BB workers). Use when an orchestrator needs a code-review gate before opening a pull request, when the user invokes the loop directly, or when pull request review comments must be verified and fixed."
+description: "Review and fix a committed diff through fresh visible BB threads sharing one ticket worktree. Use when asked to review and fix a diff or branch, or when pull request review comments must be verified and fixed."
 argument-hint: "<fixed-point> [spec or ticket reference] [--from-pr <url>]"
 ---
 
 # Review Fix Loop
 
-Read `references/subagents.md` first. Default to native sub-agents
-in this BB thread and one shared checkout; use its direct fallback if needed.
-That protocol overrides worker/workspace/relay/cleanup instructions below;
-BB-thread operations apply only to explicitly selected `bb-threads` mode.
-Keep all ticket, review, validation, and PR gates in either mode.
-
+Each phase runs in its own visible BB thread so the review is watchable from
+the IDE; all phases share one ticket environment and worktree.
 
 ## Contract
 
 - Keep one orchestrator-spawned BB worker active. `/code-review` may create its
   required Standards and Spec subagents; those subagents create no descendants.
-- Give every review, finding check, fix, and closure check a fresh spawned
-  thread in one ticket environment. Never fork or reuse a worker.
+- Give every phase a fresh visible BB thread in one ticket environment.
+  Never fork or reuse a worker.
 - Pin one immutable review base. Reviews and checks are read-only; fixes commit,
   validate, and leave the tree clean. Verify every claim in the worktree.
 - Return a clean gate to the caller. The caller owns branch push and PR creation;
@@ -26,7 +22,8 @@ Keep all ticket, review, validation, and PR gates in either mode.
 
 ## References
 
-Use `references/bb-workers.md` only for BB-thread mode. Attach
+Follow `references/bb-workers.md` for spawning, waiting, interactions,
+verification, budgets, pausing, continuation, and notification. Attach
 `references/worker-footer.md`; keep `references/ledger.md` after each transition.
 
 ## Prepare
@@ -37,12 +34,14 @@ Use `references/bb-workers.md` only for BB-thread mode. Attach
    `review-base = merge-base(fixed-point, initial-head)`.
 2. Resolve `validation`: the ticket's own validation line, else the project's
    documented check, else the package's `test`, `lint`, and `typecheck`
-   scripts. Record the command and run it yourself after every fix.
+   scripts. Record the command and run it yourself after every fix, logging
+   each attempt per `references/quarantine.md`.
 3. Snapshot the Spec or ticket once for every worker. Write the ledger after
    each transition; on resume, reconcile it with BB and Git before taking one.
-4. Reuse a clean environment or create one managed worktree at `initial-head`,
-   leaving unrelated source-checkout changes untouched. Verify `bb-cli`,
-   `tdd`, and `code-review` for the selected provider and environment.
+4. On resume reuse the ledger environment; otherwise create one managed
+   worktree at `initial-head`, leaving unrelated source-checkout changes
+   untouched. Verify `bb-cli`, `tdd`, and `code-review` for the selected
+   provider and environment.
 
 If no Spec exists, get the user's approval for a Standards-only run before
 spawning. Report Spec as skipped; never call that a two-axis pass. With
@@ -111,7 +110,8 @@ A stalled behavioral defect uses `/diagnosing-bugs`; other roots get direct
 correction. Recovery must fall below the unchanged `best-burden`; otherwise
 pause with the same root cause evidence. There is no attempt counter; only the
 worker budget caps a loop that keeps converging. Do not rerun `/code-review`:
-it is nondeterministic and does not promise convergence.
+it is nondeterministic and does not promise convergence. Quarantine flakes
+and pause twice-reopened IDs per `references/quarantine.md`.
 
 ## Finish
 

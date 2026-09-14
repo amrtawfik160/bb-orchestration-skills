@@ -4,8 +4,7 @@ Path: `$BB_THREAD_STORAGE/codebase-docs-cleanup/run.json`. Write it after every
 transition: a frozen baseline, a spawn, an idle worker, a merged inventory, a
 plan, a verified batch, a navigation check, a pause. `resume`, or an existing
 ledger at start, reconciles every recorded SHA, worker, and path against Git
-and the recorded execution backend before the next transition. Use native
-agent tools for native handles and `bb thread show` only for BB-thread workers.
+and `bb thread show` before the next transition.
 
 ```json
 {
@@ -30,14 +29,16 @@ agent tools for native handles and `bb thread show` only for BB-thread workers.
   "notify": {
     "command": "bb notify send",
     "auto_resume_message": null,
-    "auto_resume_automation": null
+    "auto_resume_automation": null,
+    "watchdog_automation": null,
+    "continuation_message": null
   },
+  "relay": { "predecessor": null, "successor": null },
   "partitions": [
     {
       "name": "src/payments",
       "worker": "thr_abc123",
       "status": "idle",
-      "last_seq": 412,
       "coverage": "complete",
       "verified": true
     }
@@ -90,8 +91,7 @@ Field notes:
 - `untracked_out_of_scope` records source-checkout files the managed worktree
   never received, so the report can say what this run could not see.
 - `partitions[].coverage` is `complete` or a plain-language description of what
-  the worker actually reached; `last_seq` is the highest thread-log event
-  sequence already read for it.
+  the worker actually reached.
 - `inventory[].class` is one of the classes in `inventory.md`, and `action` is
   `keep`, `trim`, `merge`, `move`, `delete`, or `investigate`. `preserve` names
   the knowledge and its destination, or is `null`.
@@ -101,27 +101,20 @@ Field notes:
 - `pause` is
   `{ "class", "reason", "batch", "worker", "evidence", "next_action", "auto_resume_count" }`,
   where `class` is `transient` or `decision`.
+- `notify.watchdog_automation` is the script automation that re-arms this
+  thread when it is idle with an empty queue while `state` is `running`.
+- `notify.continuation_message` is the queued `[continuation]` row that
+  continues the run; it is deleted when the run reaches a terminal state.
+- `relay.successor` is the orchestrator thread that took the run over on a
+  context handoff; `relay.predecessor` is the thread it came from.
 - The run also stores each worker's saved output, the merged inventory, and the
   plan under `$BB_THREAD_STORAGE/codebase-docs-cleanup/`.
 
-## Native execution and legacy migration
+## Execution records
 
-For the default shared checkout, follow
-`../../review-fix-loop/references/subagents.md`. Add `execution` with `mode`,
-`owner_thread`, `environment`, `worktree`, and `shared_checkout`. The example
-above illustrates historical BB-thread records; preserve them during migration.
-
-Store workers in a `workers` registry keyed by a stable local record ID. Each
-record contains `backend`, `agent_id`, `agent_session`, `phase`, `lease`,
-`status`, `base`, `head`, `verified`, and a durable `output` path. New
-`partitions[].worker`, `batches[].worker`, and `navigation_checks[].worker`
-values reference this registry; they are not implicitly BB thread IDs. Keep
-historical `thr_*` values and `last_seq` as BB-thread evidence. Never pass a
-native handle to a BB thread command.
-
-On resume, reconcile Git and saved reports, then inspect the recorded backend.
-Missing native session handles are stale: preserve their evidence, reconcile
-partial edits, and restart only unfinished phases in fresh isolated contexts.
-Do not revive archived predecessors or repeat accepted batches. Shared mode
-records out-of-scope dirty/untracked files in place and preserves them; it does
-not create a managed checkout to exclude them.
+Default `execution.mode` is `bb-threads`: one visible BB thread per inventory
+partition, batch, and navigation check, all sharing the cleanup worktree.
+Worker fields hold BB thread IDs. The
+single-thread alternative in
+`../../review-fix-loop/references/subagents.md` applies only on explicit user
+request.

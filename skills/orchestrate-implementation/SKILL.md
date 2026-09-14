@@ -1,33 +1,28 @@
 ---
 name: orchestrate-implementation
-description: "Run an approved ticket graph with in-thread sub-agents and one shared checkout: one reviewed PR per ticket, with optional stack landing."
+description: "Run an approved ticket graph with one visible BB thread per phase and one chained worktree per ticket: one reviewed PR per ticket, with optional stack landing."
 argument-hint: "<spec, ticket set, or ticket references> [--land] | resume | status"
 disable-model-invocation: true
 ---
 
 # Orchestrate Implementation
 
-Read `../review-fix-loop/references/subagents.md` first. Default to native sub-agents
-in this BB thread and one shared checkout; use its direct fallback if needed.
-That protocol overrides worker/workspace/relay/cleanup instructions below;
-BB-thread operations apply only to explicitly selected `bb-threads` mode.
-Keep all ticket, review, validation, and PR gates in either mode.
-
-
 Run Matt Pocock's `/to-spec` and `/to-tickets` output. One ticket owns one
-branch, one review-fix gate, and one pull request. The default run reuses one BB environment.
+branch, one managed worktree, one review-fix gate, and one pull request.
+Every phase runs in its own visible BB thread so the run is watchable from
+the IDE: implementation, review, checks, fixes, and PR work never share a
+thread, but share the ticket's worktree. Each next worktree chains from the
+previous ticket's accepted head.
 
 Send raw bugs through `/triage` first. If a bare Spec needs several contexts,
 pause and ask the user to run `/to-tickets`.
 
 ## Contract
 
-- Keep work serial. One orchestrator worker is active at a time; `/code-review`
-  may create only its required Standards and Spec subagents.
-- Use fresh sub-agent contexts for delegated phases and apply `review-fix-loop`
-  here without a nested coordinator. The parent owns PR writing and branch
-  switches. Only `bb-threads` mode allocates fresh BB phase threads and a new
-  environment per ticket; never fork a worker.
+- Keep work serial. One orchestrator-spawned BB worker is active at a time;
+  `/code-review` may create only its required Standards and Spec subagents.
+- Give every phase a fresh visible BB thread in the ticket environment; never
+  fork or reuse a worker.
 - Pin the graph, target branch, and each `ticket-base`. Mutating workers commit
   and leave a clean tree; reviewers and checkers preserve it. Verify every
   worker claim in the worktree before recording it.
@@ -47,17 +42,17 @@ pause and ask the user to run `/to-tickets`.
 
 Follow `../review-fix-loop/references/bb-workers.md` for spawning, waiting,
 interactions, verification, budgets, continuation, relay, pausing, notification,
-and auto-resume, and attach `../review-fix-loop/references/worker-footer.md` to
-every worker. Keep the ledger in `references/ledger.md`. After a PR opens,
+auto-resume, and the watchdog, and attach
+`../review-fix-loop/references/worker-footer.md` to every worker. Keep the ledger in `references/ledger.md`. After a PR opens,
 `references/pr-stack.md` owns the baseline, checks, ready state, merges,
-rebases, and review comments. `references/worker-prompts.md` holds the
-implementation, diagnosis, and pull request prompts.
+rebases, and review comments. Use `references/worker-prompts.md` when spawning
+implementation, diagnosis, or pull request workers.
 
 ## Modes
 
-`status` prints the ledger and takes no action: one row per ticket with its
-state, PR, checks, environment, and the current pause, then the landable line
-from Finish. `resume` continues a paused run. `--land` invokes `/land-stack`
+`status` prints the ledger and takes no action, rendered per `/run-status`:
+one row per ticket with its state, PR, checks, environment, and the current
+pause, then the landable line from Finish. `resume` continues a paused run. `--land` invokes `/land-stack`
 once the run is `finished`, so one invocation goes from tickets to merged.
 
 ## Prepare
@@ -75,9 +70,10 @@ once the run is `finished`, so one invocation goes from tickets to merged.
 3. Capture `ci_baseline` with the command in `references/pr-stack.md`. A PR
    failure named there is inherited, not caused, and never blocks this run;
    without it a red repository reads as a red ticket and strands the stack.
-4. Snapshot the approved artifacts once and write the run ledger. `resume`, or
-   an existing ledger at start, reconciles it with BB, Git, GitHub, and the
-   tracker before one next transition.
+4. Snapshot the approved artifacts once, write the run ledger, and create the
+   watchdog automation from `bb-workers.md`. `resume`, or an existing ledger at
+   start, reconciles it with BB, Git, GitHub, and the tracker before one next
+   transition.
 5. Verify `bb-cli`, `implement`, `diagnosing-bugs`, `tdd`, `code-review`,
    `review-fix-loop`, `show-me`, `gh-axi`, and authenticated push and PR access.
    Leave unrelated source checkout changes untouched.
@@ -89,8 +85,7 @@ each PR keeps a one-ticket diff. The first ticket branches from the target
 branch. Each later ticket branches from the exact accepted head of the previous
 ticket, and its PR targets that previous ticket branch. Create a managed
 environment at that base and record `ticket-base`, `pr-base`, and
-`ticket-branch` in `bb-threads` mode. The default uses the existing checkout
-per `subagents.md`; a dirty or drifting base must be reconciled before switching.
+`ticket-branch`; a dirty or drifting base must be reconciled before branching.
 
 ## Gates
 
@@ -109,12 +104,12 @@ or an absent verdict blocks the PR: an unwritten gate is a skipped gate, and
 neither a finished loop nor a zero burden says which axes ran.
 
 Before opening the PR, reconcile every acceptance criterion and prove
-`pr-base...HEAD` contains only this ticket. After creation, verify its remote
-head equals the reviewed `HEAD`, its base is `pr-base`, and its URL is recorded,
-then follow `references/pr-stack.md`: record the checks, mark the PR ready once
-it passes net of `ci_baseline`, and pause on a failing check the ticket broke.
-Set the tracker to `in review` and switch the shared checkout to the next
-ticket branch; only `bb-threads` mode creates a new environment.
+`pr-base...HEAD` contains only this ticket. A fresh PR worker pushes the exact
+clean head and opens the draft PR; verify its remote head equals the reviewed
+`HEAD`, its base is `pr-base`, and its URL is recorded, then follow
+`references/pr-stack.md`: record the checks, mark the PR ready once it passes
+net of `ci_baseline`, and pause on a failing check the ticket broke. Set the
+tracker to `in review` before the next ticket chains from this accepted head.
 If push or PR creation fails, pause first. An older single-branch run instead
 follows `references/recovery.md`.
 

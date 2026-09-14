@@ -1,12 +1,3 @@
-# Shared-checkout PR identity
-
-With `execution.shared_checkout: true`, resolve each PR by its recorded URL,
-branch, accepted head, and base. One BB environment may serve many ticket PRs;
-its currently associated PR is contextual, not proof for historical tickets.
-Run branch integration serially after every worker is quiescent. Preserve the
-shared checkout and all branches required by downstream PRs during landing.
-Use the gate and rebase/retarget rules below without per-ticket retirement.
-
 # Pull request stack
 
 ```text
@@ -97,8 +88,7 @@ git merge-base --is-ancestor "$PARENT_ACCEPTED_HEAD" "origin/$TARGET" \
   `gh pr edit "$CHILD_URL" --base "$TARGET"`, then prove one ticket as below.
 - `rebase` (squash or rebase merge rewrote the parent's commits): the child
   still carries the parent's original commits, so a direct retarget would show
-  both tickets. In shared mode, stop workers and perform this rebase serially
-  in the existing checkout. In BB-thread mode, use the child's environment:
+  both tickets. Spawn a fresh visible rebase worker in the child's environment:
 
   ```text
   Rebase <child-branch> onto origin/<target>, dropping the commits merged from <parent-branch>:
@@ -147,6 +137,5 @@ and the stack below rebases as above.
 ## Merging
 
 `land-stack` merges the whole stack oldest first, closes each ticket, and
-archives isolated environments only in BB-thread mode. Shared mode preserves
-the owner thread and checkout. It runs the parent-merge procedure above for every
-child before merging it.
+archives each ticket environment after its merge is confirmed. It runs the
+parent-merge procedure above for every child before merging it.

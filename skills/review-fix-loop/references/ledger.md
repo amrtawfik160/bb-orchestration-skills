@@ -30,7 +30,6 @@ next transition.
       "phase": "review",
       "thread": "thr_abc123",
       "status": "idle",
-      "last_seq": 412,
       "base": "89abcdef0123456789abcdef0123456789abcdef",
       "head": "89abcdef0123456789abcdef0123456789abcdef",
       "verified": true,
@@ -48,6 +47,21 @@ next transition.
       "fix_head": null
     }
   ],
+  "attempts": [
+    {
+      "fix_head": "89abcdef0123456789abcdef0123456789abcdef",
+      "validation": "pass",
+      "failing": []
+    }
+  ],
+  "quarantine": [
+    {
+      "check": "Runtime adapter contract",
+      "pattern": "alternating",
+      "evidence": "red c1, green c2, red c3",
+      "ticket": "https://github.com/org/repo/issues/99"
+    }
+  ],
   "best_burden": 1,
   "recovery_used": false,
   "gate": { "verdict": null, "final_head": null, "open_confirmed_findings": null },
@@ -61,27 +75,23 @@ Field notes:
 - `findings[].verdict` is `CONFIRMED` or `DISPUTED`; `state` is `OPEN`,
   `RESOLVED`, or `CONFIRMED_FIX_REGRESSION`. Reuse an ID for the same root cause.
 - `best_burden` is the lowest count of distinct open root causes seen so far.
+- `attempts[]` holds one entry per fix, written by the orchestrator after
+  running `validation` itself: the fix head, the result, and the failing
+  checks. Attempts are evidence for quarantine and diagnosis, never a cap.
+- `quarantine[]` holds one entry per flaked-out check: name, flake pattern,
+  evidence, and repair ticket. A quarantined check gates nothing until a
+  human acks or its ticket lands.
 - `pause` is
   `{ "class", "reason", "worker", "evidence", "next_action", "auto_resume_count" }`
   when paused, where `class` is `transient` or `decision`.
 - `workers[].output` is the saved final message, relative to
   `$BB_THREAD_STORAGE`.
-- `workers[].last_seq` is the highest thread-log event sequence already read for
-  that worker; the next wait window pages from it with `--after-seq`.
 
-## In-thread execution records
+## Execution records
 
-Follow `../review-fix-loop/references/subagents.md` from the skill directory
-(`references/subagents.md` for review-fix-loop). Add `execution.mode`,
-`execution.owner_thread`, `execution.environment`, `execution.worktree`, and
-`execution.shared_checkout`. Native workers record `backend: subagents`,
-`agent_id`, `agent_session`, `lease`, phase/status, pinned base/head, verified
-result, and a durable output path. These are distinct from legacy `thread`
-and `last_seq` fields; keep those unchanged as historical evidence.
-
-Missing native handles after compaction/provider restart become stale pending
-Git/result reconciliation. Restart only unfinished phases. A legacy ledger
-without an execution mode is not silently migrated: reconcile the user's
-constraint, preserve its old worker records, then record the chosen mode.
-A shared checkout persists across tickets and landing. Native execution never
-sets a relay successor or retires the owner's environment.
+Default `execution.mode` is `bb-threads`: one visible BB thread per phase in
+one ticket environment. Each worker records `thread`,
+phase/status, pinned base/head, verified result, and a durable output path.
+The single-thread alternative in `references/subagents.md` applies only on
+explicit user request; its native workers record `backend: subagents`,
+`agent_id`, `agent_session`, and `lease` instead of BB thread fields.
