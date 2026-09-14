@@ -29,14 +29,37 @@ require_pattern() {
   fi
 }
 
+reject_pattern() {
+  local file=$1
+  local pattern=$2
+
+  if grep -Eq -- "$pattern" "$file"; then
+    printf 'FAIL %s: obsolete continuity contract /%s/\n' \
+      "${file#"$repo_root"/}" "$pattern"
+    failed=1
+  fi
+}
+
 # A turn must not end with work left and nothing queued.
 require_pattern "$protocol" '## Continue the run'
 require_pattern "$protocol" 'Ending a turn is not pausing'
 require_pattern "$protocol" 'may end only in a terminal state'
-require_pattern "$protocol" "bb thread tell \"\\\$BB_THREAD_ID\" 'Continue this run from its ledger.' --mode queue"
+require_pattern "$protocol" "bb thread tell \"\\\$BB_THREAD_ID\" '\[continuation\]"
+require_pattern "$protocol" '\[continuation\] orchestrate-implementation'
+require_pattern "$protocol" '\[continuation\] land-stack'
+require_pattern "$protocol" '\[continuation\] verify-landing'
+require_pattern "$protocol" '\[continuation\] review-fix-loop'
+require_pattern "$protocol" '\[continuation\] codebase-docs-cleanup'
+require_pattern "$protocol" 'as the turn ends, not as it starts'
+reject_pattern "$protocol" 'as soon as the turn starts'
 require_pattern "$protocol" 'queue delete'
 require_pattern "$orchestrator" 'A run outlives one turn'
 require_pattern "$ledger" 'continuation_message'
+
+# Wakes never stack, stale rows clear, and a terminal wake ends silently.
+require_pattern "$protocol" 'select\(.content'
+require_pattern "$protocol" 'end the turn silently'
+require_pattern "$protocol" 'safe to ignore'
 
 # The continuation is a loop, so it needs its own caps.
 require_pattern "$protocol" 'no_progress'
@@ -45,10 +68,33 @@ require_pattern "$ledger" 'since_last_transition'
 require_pattern "$ledger" 'run_workers'
 require_pattern "$ledger" 'continuations'
 
+# A turn with nothing to do but wait must not spin. thr_svfvm2xg6t completed a
+# turn every 25-30 seconds for hours, each one re-sweeping one PR and
+# re-queueing itself, because an immediate continuation plus a sweep that
+# counted as a transition made the loop legal.
+require_pattern "$protocol" 'Never end a turn while a worker is active'
+require_pattern "$protocol" '\[continuation\].*--send-at 10m'
+require_pattern "$protocol" 'unchanged sweep is not a transition'
+require_pattern "$protocol" 'nothing pending'
+
+# A queued continuation can be lost without dispatching, so a running ledger
+# needs an external watchdog, not only a paused one.
+require_pattern "$protocol" '## Watchdog'
+require_pattern "$protocol" 'idle with an empty queue'
+require_pattern "$protocol" 'bb automation create --project "\$BB_PROJECT_ID" --name "watchdog'
+require_pattern "$protocol" 'codebase-docs-cleanup/run.json'
+require_pattern "$protocol" 'review-fix-loop/\*.json'
+require_pattern "$ledger" 'watchdog_automation'
+require_pattern "$orchestrator" 'watchdog'
+require_pattern "$protocol" 'manual-stop'
+
 # One thread cannot hold a long run.
 require_pattern "$protocol" '## Relay to a successor'
 require_pattern "$protocol" 'contextWindowUsage'
+require_pattern "$protocol" 'bb thread context --self --json'
 require_pattern "$protocol" 'Never fork for this'
+require_pattern "$protocol" 'Continue this <skill> run from the attached ledger'
+require_pattern "$protocol" 'relay.predecessor'
 require_pattern "$ledger" 'relay.successor|"relay"'
 
 # A red target branch is inherited, not caused.

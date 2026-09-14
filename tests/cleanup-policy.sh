@@ -9,6 +9,7 @@ skill="$repo_root/skills/codebase-docs-cleanup/SKILL.md"
 inventory="$repo_root/skills/codebase-docs-cleanup/references/inventory.md"
 pruning="$repo_root/skills/codebase-docs-cleanup/references/pruning.md"
 ledger="$repo_root/skills/codebase-docs-cleanup/references/ledger.md"
+prompts="$repo_root/skills/codebase-docs-cleanup/references/worker-prompts.md"
 failed=0
 
 require_pattern() {
@@ -69,9 +70,14 @@ require_pattern "$skill" 'create a permanent cleanup report inside the repositor
 # The navigation layer is proved by threads that never saw the cleanup.
 require_pattern "$skill" 'cold-start workers'
 require_pattern "$skill" 'no memory of this cleanup'
-require_pattern "$skill" 'You have not seen this repository before'
+require_pattern "$prompts" 'You have not seen this repository before'
 require_pattern "$skill" 'is a failing pointer'
 require_pattern "$ledger" 'navigation_checks'
+
+# Partitions come from the tree; the paths API rejects an empty query with
+# HTTP 400, so the listing must omit --query rather than pass "".
+require_pattern "$skill" 'bb environment paths "\$ENV" --directories'
+reject_pattern "$skill" '--query ""' 'is rejected by the paths API with HTTP 400'
 
 # The final diff is read from BB, deletions included.
 require_pattern "$skill" 'bb environment diff-files'
@@ -100,6 +106,15 @@ require_pattern "$skill" '\.\./review-fix-loop/references/bb-workers.md'
 require_pattern "$skill" '\.\./review-fix-loop/references/worker-footer.md'
 reject_pattern "$skill" '^## Wait' 'restates the shared wait protocol'
 reject_pattern "$skill" 'bb thread wait' 'restates the shared wait protocol'
+
+# A cleanup outlives one turn: it continues from its ledger like every run,
+# and the watchdog covers turns that end with nothing queued.
+require_pattern "$skill" 'A run outlives one turn'
+require_pattern "$skill" '`\[continuation\]` template queued per'
+require_pattern "$skill" 'watchdog automation from `bb-workers.md`'
+require_pattern "$ledger" 'watchdog_automation'
+require_pattern "$ledger" 'continuation_message'
+require_pattern "$ledger" '"relay"'
 
 if (( failed )); then
   exit 1

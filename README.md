@@ -7,17 +7,16 @@ inside BB. They coordinate his `/to-spec`, `/to-tickets`, `/implement`, `/tdd`,
 and `/code-review` flow, and route hard defect tickets through
 `/diagnosing-bugs`. Matt's skills still do the underlying work.
 
-Tickets run serially in one persistent BB thread and one existing checkout.
-Native sub-agents handle bounded phases; Standards and Spec review the same
-frozen commit independently. Only one writer may operate at a time. Each ticket
-keeps its own branch and PR. A provider without native agent tools can continue
-serial work directly, but cannot claim an unavailable independent-review gate.
+Tickets run serially, one ticket at a time, and every phase runs in its own
+visible BB thread you can watch from the IDE sidebar. Each ticket owns one
+branch, one managed worktree, and one PR.
+Each next worktree chains from the previous ticket's accepted head, so the
+stack stays a chain of one-ticket diffs.
 
-The BB CLI still supplies context, queues, and durable thread state. Agent
-spawn/wait/message tools come from the active provider; there is no invented
-`bb subagent` command. Separate BB worker threads and ticket worktrees are an
-explicit alternative, not an automatic fallback. Shared environments survive
-landing, and continuation stays in the owner thread.
+The BB CLI supplies context, queues, durable thread state, and worker
+spawning through `bb thread spawn`. There is no invented `bb subagent`
+command. A single-thread in-process alternative exists only for explicit
+requests; it is never the default.
 
 The orchestrator runs `review-fix-loop` directly. That skill starts the fresh
 review, verification, and fix workers, so there is no nested coordinator.
@@ -30,17 +29,20 @@ result. The `/code-review` guide warns that repeated reviews are
 nondeterministic and may not converge.
 
 Once every ticket is accepted, `land-stack` merges the pull requests oldest
-first and closes the tickets. It preserves the persistent shared checkout.
-Per-ticket worktree retirement applies only to the explicit BB-thread mode.
+first, closes the tickets, and retires each ticket worktree after its merge
+is confirmed. `verify-landing` then proves each merge green on the target,
+and `run-status` reports where any run stands without touching it.
 
 ```mermaid
 flowchart LR
-    T[Persistent BB thread] --> I[One ticket branch]
-    I --> W[Serial implementation or fix]
-    W --> R[Fresh Standards and Spec sub-agents]
-    R --> P[One reviewed PR]
-    P --> N[Next branch in the same checkout]
-    N --> I
+    T[Orchestrator BB thread] --> E1[Ticket A worktree at target]
+    E1 --> I1[Implement thread]
+    I1 --> R1[Review + fix threads]
+    R1 --> P1[PR thread: one reviewed PR]
+    P1 --> E2[Ticket B worktree at A head]
+    E2 --> I2[Implement thread]
+    I2 --> R2[Review + fix threads]
+    R2 --> P2[PR thread stacked on A]
 ```
 
 ## Skills
@@ -49,12 +51,13 @@ flowchart LR
 
 Processes an approved ticket graph one ticket at a time, following its blocker
 frontier. Planned work and known fixes use `/implement`; hard, unexplained,
-intermittent, and performance defects use `/diagnosing-bugs`. Each ticket is
-reviewed, its confirmed findings are fixed, and one draft PR is pushed before
-the next ticket starts on its own branch in the shared checkout. Later PRs stack on the previous
-ticket branch, so each PR keeps a one-ticket diff.
+intermittent, and performance defects use `/diagnosing-bugs`. Each ticket gets
+its own chained worktree; implementation, review, fixes, and PR work each run
+in a fresh visible BB thread sharing that worktree. One draft PR is pushed
+before the next ticket chains from its accepted head. Later PRs stack on the
+previous ticket branch, so each PR keeps a one-ticket diff.
 
-The parent opens the draft PR and builds the body from
+A fresh PR worker opens the draft PR and builds the body from
 `/show-me`: the smallest diagram, call tree, or diff shape that shows what the
 ticket changed, plus two sentences of context.
 
@@ -68,8 +71,7 @@ instead of running a new review.
 ### `land-stack`
 
 Ends the run. It merges the PR stack oldest first, closes each ticket, and
-preserves the shared environment. In explicit BB-thread mode it can retire
-isolated ticket worktrees after their merges. Every
+retires each ticket worktree after its merge is confirmed. Every
 PR is gated on green checks and a head that still matches the reviewed one, and
 each child is retargeted or rebased onto the target branch before it merges.
 Landing stops at the first PR that cannot merge; whatever already merged stays
@@ -80,6 +82,21 @@ so the whole path from tickets to merged main runs without you. Pass
 `--require-approvals` to also require an approving review and no unresolved
 comment threads. Unresolved comments without that flag are treated as findings
 and go back through the fix loop.
+
+### `verify-landing`
+
+Ends the cycle. It verifies each landed merge oldest first: merge-commit
+checks green net of the CI baseline and quarantine, plus a smoke run in a
+verify worktree at the target head. A merge that turns the target red gets a
+response, never silence: fix forward only when the cause is known and one
+ticket heals it, else revert first and file the fix.
+
+### `run-status`
+
+Answers "where does the run stand" from one ledger plus read-only thread
+and PR state: ticket rows, PR checks, live children, and blockers. It is
+read-only and single-turn, so it is safe to run mid-flight. The
+orchestrator's `status` mode renders through it.
 
 ### `codebase-docs-cleanup`
 
@@ -116,10 +133,13 @@ The skills stay short because the mechanics live in reference files:
 | `review-fix-loop/references/bb-workers.md` | Exact `bb` commands to spawn, wait on, inspect, and verify workers; interactions; GitHub access; budgets; pausing, notification, and auto-resume |
 | `review-fix-loop/references/worker-footer.md` | The `WORKER_RESULT` footer every worker ends with, attached to each spawn |
 | `review-fix-loop/references/ledger.md` | Loop ledger schema under `$BB_THREAD_STORAGE` |
-| `orchestrate-implementation/references/ledger.md` | Run ledger schema, including per-phase provider and model choices and landing state |
+| `review-fix-loop/references/quarantine.md` | Flake patterns, quarantine records, and the reopen budget |
+| `orchestrate-implementation/references/ledger.md` | Run ledger schema, including per-phase provider and model choices, landing, and verification state |
 | `orchestrate-implementation/references/pr-stack.md` | CI baseline, the check sweep, ready state, squash-merge rebases, review comments, merge order |
 | `orchestrate-implementation/references/worker-prompts.md` | The implementation, diagnosis, and pull request prompts |
 | `orchestrate-implementation/references/recovery.md` | Rebuilding a stack from an older single-branch run |
+| `verify-landing/references/red-main.md` | Red-target classification and the revert-first response |
+| `run-status/references/format.md` | The one-pane status sections and field mapping |
 | `codebase-docs-cleanup/references/inventory.md` | Classification classes, evidence table, and the keep/trim/merge/delete decision rules |
 | `codebase-docs-cleanup/references/pruning.md` | The five prose tests, `AGENTS.md` rules, navigation pointers, and code-readability limits |
 | `codebase-docs-cleanup/references/ledger.md` | Cleanup ledger schema, including the validation baseline and navigation checks |
@@ -127,8 +147,12 @@ The skills stay short because the mechanics live in reference files:
 ## What they enforce
 
 - One active worker at a time, except for read-only workers that never write.
-- A fresh hidden BB thread for every implementation, diagnosis, review, finding
-  check, fix, and closure check, stopped after its result is recorded.
+- A fresh visible BB thread for every phase, stopped after its result is
+  recorded so the thread and log stay inspectable from the sidebar.
+- An orchestrator that listens instead of polls: one blocking wait covers a
+  phase, with no log reads and no status nudges while workers run.
+- User stops that stick: a stopped worker pauses with its partial output,
+  never respawns, and the watchdog leaves a user-stopped thread alone.
 - One branch and managed worktree per ticket; only that ticket's workers share
   it.
 - Worker claims are verified in the worktree: clean tree, expected `HEAD`, and
@@ -158,14 +182,25 @@ The skills stay short because the mechanics live in reference files:
   themselves through a scheduled resume; only real decisions reach you, with the
   command that continues the run.
 - A run that crosses turns without you. Every turn ends in a terminal state or
-  with its continuation already queued, and hands off to a fresh orchestrator
-  before context runs out.
+  with its `[continuation]` row queued as it ends, naming the skill and ledger,
+  and hands off to a fresh orchestrator before context runs out. It waits
+  inside the turn while a worker runs and wakes every ten minutes while only
+  CI is pending, so it never spins, and a watchdog automation re-arms it if BB
+  loses its queued continuation or a turn ends with nothing queued. A brief
+  `[continuation]` row in the IDE Queue panel between turns is normal and safe
+  to ignore.
 - A CI baseline taken before the first ticket, so a repository whose default
   branch is already red does not read as a red ticket and strand the stack.
 - A review gate that must be written down. The PR step reads the recorded
   verdict, so a gate that was never recorded blocks the PR instead of passing
   silently.
 - Merges in stack order, with cleanup gated on a merge confirmed at the remote.
+- Verification of every landed merge on the target, with a revert-first
+  response and a filed fix ticket when a merge turns the target red.
+- Flake quarantine with a repair ticket, and a pause with a diagnosis bundle
+  when a finding reopens twice. Converging work still runs to zero.
+- One-pane run status from the ledger that reads everything and touches
+  nothing.
 - One approved tracer-bullet ticket per implementation or diagnosis thread,
   with the parent Spec left unchanged.
 - Small worker prompts that invoke Matt's skills and attach source material.
@@ -192,9 +227,14 @@ which is why `codebase-docs-cleanup` inventories subsystems in parallel.
 ## Requirements
 
 - `bb` on `PATH` and a BB project thread.
-- The `bb-cli` skill.
-- The bundled `review-fix-loop`, `land-stack`, and `show-me` skills when using
-  `orchestrate-implementation`.
+- The `bb-cli` skill. BB ships it, and `bb skill install-cli-skills` copies it
+  into `~/.claude/skills` and `~/.agents/skills` for agents that run outside
+  BB. Those copies do not follow a BB upgrade: when
+  `bb skill cli-skills-status` reports `outdated`, run the install command
+  again, or the copy keeps describing commands and flags the installed CLI no
+  longer has.
+- The bundled `review-fix-loop`, `land-stack`, `verify-landing`, `run-status`,
+  and `show-me` skills when using `orchestrate-implementation`.
 - [Matt Pocock's skills](https://github.com/mattpocock/skills), including
   `implement`, `diagnosing-bugs`, `tdd`, and `code-review`.
 - `/to-spec` and `/to-tickets` when using the full planning flow.
@@ -205,9 +245,8 @@ which is why `codebase-docs-cleanup` inventories subsystems in parallel.
 - A configured issue tracker through `/setup-matt-pocock-skills`.
 
 `/to-spec`, `/to-tickets`, `/implement`, and `/ask-matt` are user-invoked.
-The orchestrator consumes approved planning artifacts and gives each native
-worker a bounded task with accessible skill sources. Native task text does not
-automatically expand BB slash commands. `/ask-matt` remains a router, not a workflow step.
+The orchestrator consumes approved planning artifacts and gives each worker
+thread a bounded task with attached skill sources. `/ask-matt` remains a router, not a workflow step.
 
 ## Install
 
@@ -220,7 +259,8 @@ npx skills add amrtawfik160/bb-orchestration-skills
 
 Start the orchestrator in a new BB environment after installing or updating.
 BB pins skill revisions when an environment loads, so an open environment keeps
-using its previous revision.
+using its previous revision. No child threads in the sidebar is the symptom of
+a stale pin: start a new environment.
 
 Or copy them into BB's user skill directory, which is `skills/` inside the bb
 data directory. That is `~/.bb/skills` by default; `bb status` prints the data
@@ -232,15 +272,17 @@ mkdir -p ~/.bb/skills
 cp -R bb-orchestration-skills/skills/* ~/.bb/skills/
 ```
 
-Three skills read reference files from their siblings' directories, so install
-them together:
+Four skills read reference files from their siblings' directories, so
+install them together:
 
 - `orchestrate-implementation` reads `../review-fix-loop/references/`.
 - `land-stack` reads both `../review-fix-loop/references/` and
   `../orchestrate-implementation/references/`.
+- `verify-landing` reads both `../review-fix-loop/references/` and
+  `../orchestrate-implementation/references/`.
 - `codebase-docs-cleanup` reads `../review-fix-loop/references/`.
 
-`review-fix-loop` and `show-me` have no such dependency.
+`review-fix-loop`, `run-status`, and `show-me` have no such dependency.
 
 ## Usage
 
@@ -251,7 +293,8 @@ The unattended path is one command:
 ```
 
 That implements every ticket, reviews and fixes each one, opens the PR stack,
-merges it oldest first, closes the tickets, and preserves the shared checkout. It stops
+merges it oldest first, closes the tickets, retires the ticket worktrees, and
+proves each merge green on the target. It stops
 only for a decision it cannot make.
 
 The individual entry points:
@@ -262,6 +305,9 @@ The individual entry points:
 /orchestrate-implementation status
 /land-stack [run ledger path] [--method merge|squash|rebase] [--require-approvals] [--keep-environments]
 /land-stack resume
+/verify-landing [run ledger path]
+/verify-landing resume
+/run-status [ledger path]
 /review-fix-loop <fixed-point> [spec or ticket reference] [--from-pr <url>]
 /show-me
 ```
@@ -272,10 +318,15 @@ The individual entry points:
 bash tests/run.sh
 ```
 
-Ten scripts run. Most check the skill contracts. Three go further:
+Every script under `tests/` runs. Most check the skill contracts. Four go
+further:
 
 - `bb-commands.sh` verifies that every `bb` command and flag in the worker
   protocol exists in the installed CLI, so the docs cannot drift from it.
+- `cli-semantics.sh` pins the `bb` behaviour the protocol depends on, not just
+  the flags: how log paging truncates, what the work-status fields mean, where
+  a terminal's exit code lives, and what the merge command cannot assert.
+  Inside a BB thread it also parses a real paged log.
 - `pr-stack-rebase.sh` runs the documented squash-merge rebase against a
   temporary Git repository and proves each child PR still holds one ticket.
 - `land-stack-order.sh` runs the documented landing sequence against stubbed

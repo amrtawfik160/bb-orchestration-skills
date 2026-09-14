@@ -1,7 +1,9 @@
-# In-thread sub-agent execution
+# In-thread sub-agent execution (explicit alternative only)
 
-Use this protocol by default for orchestration, review/fix, cleanup, and landing.
-Keep one persistent BB thread and one existing checkout. Each ticket still owns
+Use this protocol only when the user explicitly requests single-thread
+execution. The default is one visible BB thread per phase with one chained
+worktree per ticket, per `bb-workers.md`. This alternative keeps one
+persistent BB thread and one existing checkout. Each ticket still owns
 its own branch, pinned base, review evidence, and PR. Sub-agents are phase
 workers inside that conversation; they are not new BB threads or environments.
 User constraints and an existing run's recorded mode take precedence.
@@ -12,23 +14,26 @@ Read `bb status --json` and the relevant live `bb` help through `bb-cli`.
 Resolve the project and existing environment explicitly. Inspect the actual
 callable agent tools supplied by the current provider. BB 0.43.1 has no
 `bb subagent` command; do not invent one or treat `bb thread spawn` as native
-sub-agent creation. The CLI owns BB context, durable queues, and thread state.
+sub-agent creation. Re-check the versioned claim on BB upgrade. The CLI owns BB context, durable queues, and thread state.
 The provider's tools own native spawn, message, wait, interrupt, and results.
 
-Record `execution.mode` as `subagents`, `direct`, or `bb-threads`, plus
+Record `execution.mode` as `bb-threads`, `subagents`, or `direct`, plus
 `execution.owner_thread`, `execution.environment`, `execution.worktree`, and
-`execution.shared_checkout`. New runs default to `subagents` with a shared
-checkout when native tools are callable. Do not select a model, raise a
-permission level, or create another checkout merely to obtain those tools.
+`execution.shared_checkout`. New runs default to `bb-threads` with one chained
+worktree per ticket and one visible BB thread per phase. Select `subagents`
+only on explicit user request when native tools are callable. Do not select a
+model, raise a permission level, or create another checkout merely to obtain
+those tools.
 
 If native tools are absent, use `direct`: continue authorized serial work in
 the parent. Record independent review as unavailable; never call self-review
 a fresh two-axis PASS. Leave that gate pending and advance independent work
-that does not require it. Do not silently fall back to BB worker threads.
-Use `bb-threads` only when the user permits separate worker threads/worktrees;
-then read `bb-workers.md`'s explicitly scoped legacy backend instructions.
-An old ledger without `execution` remains legacy until its mode is reconciled
-with the user's instruction; never reinterpret its stored thread IDs as agent IDs.
+that does not require it. `bb-threads` is the default backend in
+`bb-workers.md`; this file's shared-checkout rules apply only to the
+explicitly requested single-thread alternative.
+An old ledger without `execution` predates the mode record: reconcile it as a
+`bb-threads` run unless the user explicitly constrains otherwise; never
+reinterpret its stored thread IDs as agent IDs.
 
 ## Shared checkout ownership
 

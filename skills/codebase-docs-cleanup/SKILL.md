@@ -1,17 +1,10 @@
 ---
 name: codebase-docs-cleanup
-description: "Clean a codebase with in-thread sub-agents using Matt Pocock's code-first documentation approach: audit or prune redundant docs, slim AGENTS.md and CLAUDE.md, preserve decisions and domain knowledge, and make code easier for agents to navigate. Use for an explicit code-first cleanup request, not routine feature work."
+description: "Clean a codebase using Matt Pocock's code-first documentation approach: audit or prune redundant docs, slim AGENTS.md and CLAUDE.md, and make code easier for agents to navigate. Use for an explicit code-first cleanup request, not routine feature work."
 argument-hint: "<repo path or subsystem> [--audit] [--apply] | resume | status"
 ---
 
 # Code-first cleanup
-
-Read `../review-fix-loop/references/subagents.md` first. Default to native sub-agents
-in this BB thread and one shared checkout; use its direct fallback if needed.
-That protocol overrides worker/workspace/relay/cleanup instructions below;
-BB-thread operations apply only to explicitly selected `bb-threads` mode.
-Keep all ticket, review, validation, and PR gates in either mode.
-
 
 Make the implementation the source of truth for current behavior. Make code
 discoverable and understandable instead of maintaining a prose mirror of it.
@@ -23,9 +16,8 @@ arbitrary source files, redesign the product, or change behavior.
 
 ## Contract
 
-- Work in one recorded checkout at a pinned base. Reuse the current checkout
-  in sub-agent mode and preserve pre-existing edits. Creating a managed
-  worktree is an explicit BB-thread-mode operation, subject to user scope.
+- Work in one managed BB worktree at a pinned base. The source checkout is never
+  touched; discarding the branch reverts the run.
 - Inventory and navigation workers are read-only and run in parallel; they leave
   `HEAD` and the tree exactly as they found them. Every mutating batch is one
   serial worker, verified before the next one starts.
@@ -35,18 +27,20 @@ arbitrary source files, redesign the product, or change behavior.
   repository.
 - No deletion quota, target file count, or line limit. Success is less competing
   context carrying the same useful knowledge and behavior.
-
-In explicit `bb-threads` mode, use one managed BB worktree at a pinned base.
-The source checkout is never touched; discarding the branch reverts that
-isolated run. This does not permit deleting the persistent native-mode checkout.
+- Every inventory, batch, and navigation check runs in its own visible BB
+  thread sharing the cleanup worktree, so the run is watchable from the IDE.
+- A run outlives one turn. End a turn only in a terminal state or with the
+  skill's `[continuation]` template queued per `bb-workers.md`.
 
 ## References
 
 Follow `../review-fix-loop/references/bb-workers.md` for spawning, waiting,
-interactions, result parsing, verification, budgets, pausing, and notification,
-and attach `../review-fix-loop/references/worker-footer.md` to every worker.
-`references/inventory.md` owns classification, evidence, and the decision rules.
-`references/pruning.md` owns the readability and prose rules that workers apply.
+interactions, result parsing, verification, budgets, pausing, continuation,
+auto-resume, the watchdog, and notification, and attach
+`../review-fix-loop/references/worker-footer.md` to every worker.
+`references/inventory.md` owns the classification, evidence, and decision
+rules used during Inventory and Plan. `references/pruning.md` owns the
+readability and prose rules each cleanup batch applies.
 Keep the ledger in `references/ledger.md`.
 
 ## Modes
@@ -76,17 +70,19 @@ next batch.
    `cleanup-base` and record the result, its known failures, and any unavailable
    dependency as the baseline.
    A failure already in the baseline is never evidence against a later batch.
-6. Write the ledger. Do not reset, force-clean, push, or open a pull request
-   unless separately requested.
+6. Write the ledger and create the watchdog automation from `bb-workers.md`.
+   Do not reset, force-clean, push, or open a pull request unless separately
+   requested.
 
 ## Inventory
 
 Partition the repository by subsystem and spawn one read-only worker per
-partition into the same environment. They run concurrently because they only
+partition into the same environment, each in its own visible BB thread. They
+run concurrently because they only
 read. Discover partitions from the tree, never from the docs:
 
 ```bash
-bb environment paths "$ENV" --query "" --directories --limit 100 --json
+bb environment paths "$ENV" --directories --limit 100 --json
 ```
 
 Verify each worker left `HEAD` and the tree unchanged, then merge its table into
@@ -108,33 +104,9 @@ create a permanent cleanup report inside the repository unless the user asks.
 
 ## Worker prompts
 
-Every prompt ends with `End with the attached WORKER_RESULT footer.`
-
-Inventory:
-
-```text
-Inventory <partition> for a code-first documentation cleanup.
-Read the implementation before judging its documentation: start at entry points, public contracts, domain types, tests, and configuration, then follow imports into representative paths.
-Classify every candidate file and independently actionable section with the attached rules, citing source, test, or config paths and inbound references as evidence. Read a file's full relevant content before proposing to delete it, and search for inbound links, imports, doc-build inputs, and tooling references first.
-Keep the worktree unchanged. Return the table and the coverage you actually reached.
-```
-
-Cleanup batch:
-
-```text
-Apply the attached batch only, following the attached pruning and readability rules.
-Write the knowledge it names to the destination it names before removing the source, and update incoming links and doc-build references in the same batch.
-Preserve public APIs, serialized shapes, routes, persisted schemas, configuration semantics, and initialization order. Add focused characterization tests before changing poorly covered behavior; defer instead of asserting equivalence you cannot check.
-Validate, commit, and leave the tree clean.
-```
-
-Cold-start navigation:
-
-```text
-You have not seen this repository before. Start only from <entry document> and read only what it and its pointers lead you to.
-For <subsystem>, locate the implementation and its tests. Report the exact path sequence you followed and every point where you had to guess or search outside those pointers.
-Keep the worktree unchanged.
-```
+`references/worker-prompts.md` holds the inventory, cleanup batch, and
+cold-start prompts. Every prompt ends with `End with the attached
+WORKER_RESULT footer.`
 
 ## Gates
 
@@ -166,7 +138,7 @@ resolve every reference to a moved or deleted path along with the remaining
 navigation targets and anchors.
 
 Then prove the navigation layer with cold-start workers, one per representative
-subsystem. A fresh thread has no memory of this cleanup, which is the only
+subsystem, each in a fresh visible BB thread. A fresh thread has no memory of this cleanup, which is the only
 honest test of an entry document. A worker that has to guess, or that reaches
 for a narrative this run removed, is a failing pointer and not a failing worker:
 fix the pointer, then spawn a new worker to recheck it.

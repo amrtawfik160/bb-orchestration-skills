@@ -1,5 +1,279 @@
 # Changelog
 
+## 2026-09-14 — User stops stick, relay probe goes free
+
+A live run wrote the findings. The user stopped a check worker, then the
+orchestrator mid-ledger-write; the protocol had no rule for either, so the
+footer chase would have resumed past the stop and the watchdog would have
+re-armed past it.
+
+### Stopped workers pause, never respawn
+
+A missing footer is now checked for a user stop before it is chased:
+`bb thread log --limit 1` ends with `Stopped manually`, and that pauses with
+`class: decision`, the worker ID, and the partial output as evidence. Only
+the user resumes past their own stop. The check costs one bounded read in
+one branch; the listen-only wait path is untouched.
+
+### The watchdog leaves user-stopped threads alone
+
+The watchdog skips a thread with a `manual-stop` interrupt in the last 30
+minutes, mirroring the recent-failure guard. A user stop is a decision, and
+re-arming past it would override one. The guard expires, so a run the user
+abandons without resuming still re-arms within half an hour of the stop.
+
+### Relay reads context free first
+
+The relay context check prefers `bb thread context --self --json`, which
+reads recorded usage without a model request, and falls back to the full-log
+`contextWindowUsage` probe only when usage is null. The relay scope also
+names `verify-landing`, which runs on the shared run ledger like
+`land-stack`.
+
+## 2026-09-14 — Listen-only wait: no polling, no log reads, no status nudges
+
+The Wait protocol burned credits on both sides of every phase: each
+20-minute timeout fetched `show`, a full `--after-seq` log page, and the
+interaction list, stuffed hundreds of worker events into the orchestrator's
+context to compare "windows", and after two unchanged windows interrupted
+the worker with a "Report your status" tell. `bb-cli` says plainly: let
+threads work after spawning; do not poll with shell sleeps, repeated log
+reads, or repeated status reads. The protocol now obeys it.
+
+### One blocking wait covers a phase
+
+`bb thread wait` blocks server-side, so waiting costs one call no matter how
+long the phase runs, and the parent receives lifecycle notifications when a
+child completes, fails, or is interrupted. On a timeout the orchestrator
+checks only the two things that can block silent progress — `thread.show`
+status and the interaction list — then waits again. The log is never read
+while waiting, and a working worker is never asked for status.
+
+Stall detection moves from fetched windows to elapsed time: each timeout
+consumes 20 minutes of the ticket minutes budget, and exhaustion pauses with
+`reason: budget`. Error handling is unchanged (one retry, the queued
+provider retry counts), and a pending interaction is still handled before
+the next wait.
+
+### `last_seq` retires
+
+With no paging, no sequence is tracked: `last_seq` leaves the worker records
+and field notes of all three ledgers. Old ledgers keep the field as inert
+history; resume ignores it. The `cli-semantics` suite drops the
+`--after-seq` behavior pins it no longer depends on, and both it and
+`wait-policy` now reject polling residue (`after-seq`, `LAST_SEQ`,
+`unchanged window`, `Report your status`) from the protocol.
+
+## 2026-09-14 — End-to-end hardening: verify-landing, quarantine, run-status
+
+The cycle used to end at merge: `land-stack` retired the worktrees and never
+confirmed the target stayed green, flakes looped without escape, and the only
+way to read a run was the sidebar. Three additions close those gaps.
+
+### Verify-landing proves the target
+
+New `verify-landing` skill, invoked by `land-stack` after the last merge.
+Each landed merge verifies oldest first in its own visible BB thread sharing
+one worktree at the target head: merge-commit checks green net of the CI
+baseline and quarantine, plus a smoke run. The run ledger gains a
+`verification` object and per-ticket verification records, the protocol gains
+a `[continuation] verify-landing` template, and the run ends with a
+`VERIFY_GATE` footer.
+
+A merge that turns the target red follows `references/red-main.md`: baseline
+and quarantined failures report and continue, anything else is a red target.
+Fix forward only when the cause is known and one ticket heals it within one
+cycle; otherwise revert first through the `land-stack` gate, file the fix as
+`ready-for-agent`, and notify. Silence is the only forbidden move.
+
+### Quarantine and reopen budget
+
+New `review-fix-loop/references/quarantine.md`. Two exact flake patterns
+(re-run green with no code change, alternating red-green-red across three fix
+commits) move a check into `quarantine[]` with a `ready-for-agent` repair
+ticket labeled `flaky`; gating excludes it only with the ticket recorded.
+The loop ledger gains `attempts[]` evidence and `quarantine[]`, and the land
+gate merges through quarantined failures the way it already merges through
+the baseline.
+
+The reopen budget caps cycling without touching convergence: a stable finding
+ID that returns RESOLVED to OPEN twice pauses with a diagnosis bundle, while
+`best-burden` still has no attempt counter and converging work still runs to
+zero under the worker budget. The loop absorbs this in its last two lines of
+compactness budget.
+
+### Run-status reads without touching
+
+New `run-status` skill: one ledger plus read-only thread and PR state,
+rendered in a shared four-section format (run, tickets, blockers, children)
+that names pauses, quarantines, red-main responses, and missing gate
+verdicts. Read-only and single-turn by contract: no spawns, no writes, no
+continuation. The orchestrator's `status` mode renders through it.
+
+## 2026-09-14 — Audit pass: relay handoff specified, prompts disclosed, pointers trimmed
+
+A writing-for-agents audit of the skill set. Two structural fixes and a
+round of pointer and duplication pruning.
+
+### The relay handoff is now exact
+
+The successor relay named a `$CONTINUE_PROMPT` variable but never gave its
+text, and the successor side was one vague line. It now has an exact handoff
+template (save the ledger to your own storage, record `relay.predecessor`,
+reconcile, continue per skill), a scope rule (ledgers tracking `relay`:
+orchestrate, cleanup, and land-stack via the shared run ledger; standalone
+loops use continuation instead), and `relay` fields in the cleanup ledger.
+
+### Cleanup prompts move beside orchestrate's
+
+`codebase-docs-cleanup` kept 31 lines of worker prompts inline between Plan
+and Gates while serving three scattered sections. They now live in
+`references/worker-prompts.md` like the orchestrator's, under the same
+four-line prompt budget.
+
+### Pointers and single sources
+
+- Skill descriptions trimmed: the loop loses its tautology branch, cleanup
+  loses mechanism and constraint clauses, land loses its hardwired branch,
+  show-me collapses four synonyms into one trigger.
+- The six drifting phase enumerations collapse to "every phase", with the
+  `phase:` enum in `worker-footer.md` as the single source of truth. The
+  loop's intro and contract had already drifted (recovery present, then absent).
+- The orchestrator states its loop rule once (in Gates, where `ticket-base`
+  lives) instead of twice.
+- Worker titles follow `<ticket-id> <phase>`, and the spawn record verifies
+  `.thread.visibility` is `visible`: a worker the sidebar cannot see is a
+  spawn bug.
+- Phase workers spawn only through `bb thread spawn`: provider-native agent
+  tools keep work inside the thread with no BB child, no worktree isolation,
+  and no sidebar row.
+- Reference pointers gain conditions (which prompts file when; inventory
+  during Inventory and Plan; pruning per batch), the loop's environment reuse
+  is split into resume-vs-fresh, and the worker-brief demand is sharpened to
+  a self-containment bar.
+- `bb-workers.md` gets a 550-line test budget so the next addition has to
+  earn a split instead of accreting. The version pin in `subagents.md` gets
+  an explicit re-check-on-upgrade note.
+
+## 2026-09-13 — Continuations queue at turn end and name their ledger
+
+A cleanup run showed the problem in the IDE: a cryptic `Queue 1` row reading
+`Continue this run from its ledger`, sitting there for the whole turn. The
+protocol queued the continuation as soon as the turn started working, and
+every queued row renders in the user-visible Queue panel.
+
+### Queue late, name the ledger
+
+The continuation is now queued as the turn ends, not as it starts, so the
+Queue panel holds a brief `[continuation]` row between turns instead of a
+persistent badge during work. Each skill has an exact template that names
+itself and its ledger path, with a guard that ends terminal or paused wakes
+silently instead of re-queueing. Before queueing, the agent deletes stale
+continuation rows (including legacy generic text) so wakes never stack, and
+the docs say the row is safe to ignore or delete.
+
+### The watchdog covers the gap
+
+Queue-at-start existed so an interrupted or errored turn would still
+continue. That job now belongs to the watchdog, which already re-armed
+orchestrators found idle or errored with an empty queue. It now scans
+cleanup and standalone loop ledgers too, names the exact ledger path in its
+re-arm message, and tolerates ledgers without a relay field, so one
+automation still covers every run of the project. `codebase-docs-cleanup`
+creates the watchdog and tracks `continuation_message` like the run ledger;
+it previously defined no continuation behavior at all, which is why the
+cleanup agent improvised the generic row.
+
+## 2026-09-13 — Every phase runs in its own visible BB thread on a chained ticket worktree
+
+The single-thread shared-checkout experiment is reversed. Long runs hid all
+their work inside one conversation, which made them impossible to watch and
+wasted BB's thread model. The default is BB threads again, with visibility
+fixed so the run is watchable from the IDE.
+
+### One visible thread per phase, one chained worktree per ticket
+
+Each ticket gets its own managed worktree, chained from the previous ticket's
+accepted head. Implementation, review, finding checks, fixes, closure checks,
+rebases, and PR work each run in a fresh visible BB thread sharing that
+ticket's worktree. Workers spawn with `--visibility visible` and are stopped
+after their result is recorded, so the thread and log stay inspectable from
+the sidebar instead of piling up hidden.
+
+### What changed
+
+- `orchestrate-implementation`, `review-fix-loop`, `land-stack`, and
+  `codebase-docs-cleanup` all default to BB worker threads. The in-thread
+  sub-agent protocol stays only as an explicit alternative for users who ask
+  for single-thread execution.
+- The PR worker is a fresh thread again: it pushes the exact clean head and
+  opens the draft PR with a `show-me` body, instead of the parent doing it
+  inline.
+- Landing retires each ticket worktree after its merge is confirmed on the
+  remote. There is no shared checkout to preserve.
+- Pause records no longer carry a worker-visibility promotion: workers are
+  already visible, so a blamed worker is just opened. A legacy hidden worker
+  is promoted before opening.
+- Budgets count visible workers from the ledger, with `bb thread count` able
+  to see them; the hidden-thread exclusion note now covers legacy runs only.
+
+## 2026-09-07 — A waiting run no longer spins, and a lost continuation no longer strands it
+
+Two live runs showed both problems in one afternoon.
+
+### Waiting is done inside the turn
+
+An orchestrator with nothing to do but wait for a worker or for CI used to end
+its turn and immediately wake itself again, every 25 seconds, for hours. Each
+wake re-read its whole context to re-check one pull request. It now waits on a
+running worker inside the turn, and when only CI is pending it schedules its
+next wake ten minutes out. A check that finds nothing changed no longer counts
+as progress, and the no-progress stop only applies when nothing is pending.
+
+### A watchdog catches a lost continuation
+
+BB was seen deleting a run's queued "continue" message without ever delivering
+it, which left the run idle with work in flight and nothing to wake it. Every
+run now creates one small scheduled check that re-arms any run found idle with
+an empty queue while its ledger still says it is running. One check covers every
+run in the project, including after a hand-off to a fresh thread.
+
+## 2026-09-07 — The worker checks match the installed BB again
+
+Every `bb` command the skills rely on was run against BB 0.42.1. Four did not
+do what the docs said, and the tests now pin each one.
+
+### The clean-tree check could never pass
+
+After a worker committed, the orchestrator was told to look for a `clean`
+working tree. BB reports a committed branch as `committed_unmerged`, so every
+honest worker looked dirty. The check now reads the flag BB actually sets for
+uncommitted changes.
+
+### Reading a busy worker's log no longer breaks
+
+The log page used while waiting on a worker stopped after 100 events and added
+a note after the JSON, which broke the parser on any busy window. The command
+now asks for the whole remainder as one valid page.
+
+### Remote validation reads the real exit code
+
+Validation run on another machine looked for the exit code in the wrong place.
+It is read from the terminal session record now, with a timeout long enough for
+a real test suite.
+
+### The cleanup inventory no longer fails at its first step
+
+Listing subsystems sent an empty search, which BB rejects. The listing now asks
+for every directory.
+
+### The bundled `bb-cli` copy goes stale after a BB upgrade
+
+BB installs its `bb-cli` skill into the Claude and agents skill folders, but a
+BB upgrade does not refresh those copies. A stale copy describes commands that
+no longer exist and misses ones that do. The README now says how to check and
+refresh it.
+
 ## 2026-09-07 — Runs finish on their own now
 
 Two real runs were checked. Neither reached the end, and both stopped for

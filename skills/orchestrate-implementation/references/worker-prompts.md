@@ -1,11 +1,9 @@
 # Worker prompts
 
-One job per worker, in a fresh context. In native mode use the actual provider
-tool to supply accessible source paths or content, including the relevant skill
-instructions and result contract. A slash command does not load a skill by
-itself. Fresh BB threads and `--file` attachments apply only to explicitly
-selected `bb-threads` mode. Every prompt ends with
-`End with the attached WORKER_RESULT footer.`
+One job per worker, in a fresh visible BB thread. Attach source files with
+`--file` and name them in the prompt instead of restating them. A slash
+command does not load a skill by itself, so attach the relevant skill sources.
+Every prompt ends with `End with the attached WORKER_RESULT footer.`
 
 Implementation:
 ```text
@@ -26,10 +24,10 @@ For the body use /show-me: the smallest diagram, call tree, or diff shape that s
 Return its URL and base/head SHAs.
 ```
 
-The review, finding check, fix, closure check, and recovery prompts belong to
+The loop's phase prompts belong to
 `review-fix-loop`, which this orchestrator applies directly. The rebase prompt
 is in `pr-stack.md`.
 
-Keep the task brief concise and move detailed source material into accessible
-files. Use `--file` only for BB-thread CLI calls; native tools use their own
-supported context fields. Include enough context to run without inherited history.
+Keep the task brief tight: move detailed source material into attached
+files. A worker that never saw the run must be able to execute from the
+brief plus attachments alone.

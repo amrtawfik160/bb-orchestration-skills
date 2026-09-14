@@ -30,13 +30,27 @@ reject_pattern() {
   fi
 }
 
-# Progress detection pages forward from the last seen sequence. A JSON limit
-# returns the oldest events, so every window would compare the same opening
-# events and read as no progress.
-require_pattern "$protocol" 'bb thread log "\$WORKER" --format json --after-seq'
-require_pattern "$protocol" 'last_seq'
-reject_pattern "$protocol" '^\s*bb thread log .*--format json --limit' \
-  'pages the oldest events and never shows progress'
+# The orchestrator listens for workers instead of polling them: one blocking
+# wait covers a phase, and no wait path pages the worker log or nudges it.
+require_pattern "$protocol" 'Listen; never poll'
+require_pattern "$protocol" 'Never read the worker log while waiting'
+reject_pattern "$protocol" 'after-seq' \
+  'the wait path pages no worker log'
+reject_pattern "$protocol" 'LAST_SEQ' \
+  'no sequence is tracked without paging'
+reject_pattern "$protocol" 'Report your status' \
+  'workers are never nudged for status'
+
+# A committed ticket branch reports workingTree.state committed_unmerged, so
+# the clean check must read hasUncommittedChanges.
+require_pattern "$protocol" 'workStatus\.workingTree\.hasUncommittedChanges'
+reject_pattern "$protocol" 'workingTree\.state\s*==\s*"clean"' \
+  'never holds for a committed ticket branch'
+
+# The terminal exit code lives on the session record, not in wait or output.
+require_pattern "$protocol" 'bb terminal wait "\$TERMINAL" --exit'
+require_pattern "$protocol" 'bb terminal show "\$TERMINAL" --json'
+require_pattern "$protocol" 'exitCode'
 
 # A worker can be held rather than stalled, and a retry can already be queued.
 require_pattern "$protocol" 'bb thread queue list'
@@ -47,7 +61,7 @@ require_pattern "$protocol" 'retry_already_queued'
 require_pattern "$protocol" 'maxPermissionMode'
 require_pattern "$protocol" 'bb project attachment upload'
 
-# Hidden workers are unreachable from the sidebar and uncountable.
+# Workers are visible and openable; legacy hidden workers promote and count differently.
 require_pattern "$protocol" 'bb thread update "\$WORKER" --visibility visible'
 require_pattern "$protocol" 'bb thread open "\$WORKER"'
 require_pattern "$protocol" 'exclude\s+hidden threads'
@@ -63,19 +77,18 @@ if ! command -v bb >/dev/null 2>&1; then
 fi
 
 # Live CLI facts the protocol is written against.
-log_help=$(bb thread log --help 2>&1)
-if ! grep -q -- '--after-seq' <<<"$log_help"; then
-  printf 'FAIL bb thread log: --after-seq is gone; progress paging needs a new source\n'
-  failed=1
-fi
-if ! grep -q 'oldest first' <<<"$log_help"; then
-  printf 'FAIL bb thread log: json limits are no longer oldest-first; revisit the paging rule\n'
-  failed=1
-fi
-
 count_help=$(bb thread count --help 2>&1)
 if ! grep -q 'excludes archived and hidden threads' <<<"$count_help"; then
   printf 'FAIL bb thread count: hidden-thread exclusion changed; revisit the budget rule\n'
+  failed=1
+fi
+
+if ! grep -q -- '--work-status' <<<"$(bb thread show --help 2>&1)"; then
+  printf 'FAIL bb thread show: --work-status is gone; worker verification needs a new source\n'
+  failed=1
+fi
+if ! grep -q -- '--exit' <<<"$(bb terminal wait --help 2>&1)"; then
+  printf 'FAIL bb terminal wait: --exit is gone; remote validation needs a new wait target\n'
   failed=1
 fi
 
@@ -83,7 +96,7 @@ for subcommand in 'thread queue list' 'thread queue delete' 'thread update' \
   'thread open' 'thread interactions deny' 'machine list' \
   'project attachment upload' 'environment pull-request show' \
   'environment pull-request merge' 'terminal create' 'terminal wait' \
-  'terminal output'; do
+  'terminal output' 'terminal show'; do
   if ! bb $subcommand --help >/dev/null 2>&1; then
     printf 'FAIL bb %s is not a valid command\n' "$subcommand"
     failed=1
