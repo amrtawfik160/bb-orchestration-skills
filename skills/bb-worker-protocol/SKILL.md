@@ -17,7 +17,9 @@ worker rule written five times is five rules the moment one is edited.
 
 | File | Owns |
 |---|---|
-| `references/bb-workers.md` | Spawn, wait, interactions, result parsing, worker verification, budgets, continuation, relay, pause, notify, auto-resume, watchdog |
+| `references/bb-workers.md` | One worker: spawn, wait, interactions, result parsing, verification, budgets |
+| `references/run-lifecycle.md` | Between turns: continuation, relay, pause, notify, auto-resume, watchdog |
+| `references/github.md` | `gh` / `gh-axi` access. Read by skills that never spawn a worker |
 | `references/worker-footer.md` | The `WORKER_RESULT` footer every worker ends with. Attach it to every spawn |
 | `references/validation.md` | Resolving and running the `validation` command |
 | `references/run-ledger.md` | The `run.json` schema shared by orchestrate-implementation, land-stack, and verify-landing |

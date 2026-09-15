@@ -87,6 +87,28 @@ if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$repo_root/skil
   fail "skills.sh.json does not parse"
 fi
 
+# Single source of truth. Each rule below belongs to one file; a second copy is
+# a two-place edit waiting to drift, and it inflates the rule's rank by making
+# it look like a skill's own contract rather than the runtime's.
+while read -r rule; do
+  [[ -z "$rule" ]] && continue
+  hits=0
+  while read -r f; do
+    awk '/^[[:space:]]*```/ {fenced = !fenced; next} !fenced' "$f" \
+      | tr '\n' ' ' | tr -s ' ' | grep -qiF -- "$rule" && (( ++hits ))
+  done < <(find "$repo_root"/skills -name '*.md')
+  if (( hits > 1 )); then
+    fail "'$rule' appears in $hits files; bb-worker-protocol owns it"
+  elif (( hits == 0 )); then
+    fail "'$rule' appears nowhere; bb-worker-protocol should still own it"
+  fi
+done <<'RULES'
+A run outlives one turn
+End with the attached WORKER_RESULT footer.
+Prefer the `gh-axi` skill over raw `gh`
+Never fork or reuse a worker
+RULES
+
 # The vendored show-me skill keeps its license beside it.
 [[ -f "$repo_root/skills/show-me/LICENSE" ]] || fail "skills/show-me/LICENSE is missing"
 

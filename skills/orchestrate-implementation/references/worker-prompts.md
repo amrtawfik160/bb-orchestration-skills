@@ -1,9 +1,6 @@
 # Worker prompts
 
-One job per worker, in a fresh visible BB thread. Attach source files with
-`--file` and name them in the prompt instead of restating them. A slash
-command does not load a skill by itself, so attach the relevant skill sources.
-Every prompt ends with `End with the attached WORKER_RESULT footer.`
+One job per worker. Spawn and attachment rules live in `bb-workers.md`.
 
 Implementation:
 ```text

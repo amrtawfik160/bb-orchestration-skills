@@ -6,6 +6,7 @@ set -euo pipefail
 # and only a transient pause may auto-resume.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
+lifecycle="$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md"
 run_ledger="$repo_root/skills/bb-worker-protocol/references/run-ledger.md"
 loop_ledger="$repo_root/skills/review-fix-loop/references/ledger.md"
 failed=0
@@ -21,33 +22,33 @@ require_pattern() {
   fi
 }
 
-require_pattern "$protocol" 'Classify every pause'
-require_pattern "$protocol" '`transient`'
-require_pattern "$protocol" '`decision`'
-require_pattern "$protocol" 'rate limit'
-require_pattern "$protocol" 'A `decision` pause always reaches the user'
-require_pattern "$protocol" 'auto-resume automation'
+require_pattern "$lifecycle" 'Classify every pause'
+require_pattern "$lifecycle" '`transient`'
+require_pattern "$lifecycle" '`decision`'
+require_pattern "$lifecycle" 'rate limit'
+require_pattern "$lifecycle" 'A `decision` pause always reaches the user'
+require_pattern "$lifecycle" 'auto-resume automation'
 
-require_pattern "$protocol" '## Notify'
-require_pattern "$protocol" 'bb plugin list \| grep'
-require_pattern "$protocol" 'the exact command that continues it'
-require_pattern "$protocol" 'With no such'
-require_pattern "$protocol" 'the thread report is the notification'
+require_pattern "$lifecycle" '## Notify'
+require_pattern "$lifecycle" 'bb plugin list \| grep'
+require_pattern "$lifecycle" 'the exact command that continues it'
+require_pattern "$lifecycle" 'With no such'
+require_pattern "$lifecycle" 'the thread report is the notification'
 
 # A decision pause must be reachable: workers are visible by default.
-require_pattern "$protocol" 'Workers are visible, so the user can reach one from the sidebar'
-require_pattern "$protocol" 'blames a specific worker, open it'
-require_pattern "$protocol" 'bb thread open "\$WORKER"'
+require_pattern "$lifecycle" 'Workers are visible, so the user can reach one from the sidebar'
+require_pattern "$lifecycle" 'blames a specific worker, open it'
+require_pattern "$lifecycle" 'bb thread open "\$WORKER"'
 
-require_pattern "$protocol" '## Auto-resume'
-require_pattern "$protocol" 'leaves nothing to clean up'
-require_pattern "$protocol" 'bb automation create --project'
-require_pattern "$protocol" 'bb automation delete'
-require_pattern "$protocol" 'delete that automation when the run leaves `paused`'
-require_pattern "$protocol" 'only if its ledger pause class is transient'
-require_pattern "$protocol" 'auto_resume_count'
-require_pattern "$protocol" 'After three that do not'
-require_pattern "$protocol" 'reclassify the pause as `decision`'
+require_pattern "$lifecycle" '## Auto-resume'
+require_pattern "$lifecycle" 'leaves nothing to clean up'
+require_pattern "$lifecycle" 'bb automation create --project'
+require_pattern "$lifecycle" 'bb automation delete'
+require_pattern "$lifecycle" 'delete that automation when the run leaves `paused`'
+require_pattern "$lifecycle" 'only if its ledger pause class is transient'
+require_pattern "$lifecycle" 'auto_resume_count'
+require_pattern "$lifecycle" 'After three that do not'
+require_pattern "$lifecycle" 'reclassify the pause as `decision`'
 
 for ledger in "$run_ledger" "$loop_ledger"; do
   require_pattern "$ledger" '"class"'

@@ -79,8 +79,18 @@ for scenario in "$scenario_dir"/*.md; do
     continue
   fi
 
+  # Load the skill the way a run loads it: SKILL.md plus the reference files it
+  # points at. Loading SKILL.md alone would fail any rule that correctly lives
+  # in bb-worker-protocol, punishing the single source of truth.
   system=''
-  (( baseline )) || system=$(cat "$skill_file")
+  if (( ! baseline )); then
+    system=$(cat "$skill_file")
+    while read -r ref; do
+      [[ -z "$ref" ]] && continue
+      target="$(dirname "$skill_file")/$ref"
+      [[ -f "$target" ]] && system+=$'\n\n'"$(cat "$target")"
+    done < <(grep -oE '`(\.\./)*[a-z0-9-]*/?references/[a-z0-9-]+\.md`' "$skill_file" | tr -d '`' | sort -u)
+  fi
   prompt=$(body "$scenario")
 
   complied=0

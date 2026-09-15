@@ -11,7 +11,8 @@ set -euo pipefail
 #   thr_qanmy8ufx3: 1 of 16 tickets, paused on a check that also fails on the
 #                   target branch, with a pause record carrying no `class`.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
+protocol="$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md"
+lifecycle="$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md"
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
 stack="$repo_root/skills/bb-worker-protocol/references/pr-stack.md"
 ledger="$repo_root/skills/bb-worker-protocol/references/run-ledger.md"
@@ -41,29 +42,29 @@ reject_pattern() {
 }
 
 # A turn must not end with work left and nothing queued.
-require_pattern "$protocol" '## Continue the run'
-require_pattern "$protocol" 'Ending a turn is not pausing'
-require_pattern "$protocol" 'may end only in a terminal state'
+require_pattern "$lifecycle" '## Continue the run'
+require_pattern "$lifecycle" 'Ending a turn is not pausing'
+require_pattern "$lifecycle" 'may end only in a terminal state'
 require_pattern "$protocol" "bb thread tell \"\\\$BB_THREAD_ID\" '\[continuation\]"
-require_pattern "$protocol" '\[continuation\] orchestrate-implementation'
-require_pattern "$protocol" '\[continuation\] land-stack'
-require_pattern "$protocol" '\[continuation\] verify-landing'
-require_pattern "$protocol" '\[continuation\] review-fix-loop'
-require_pattern "$protocol" '\[continuation\] codebase-docs-cleanup'
-require_pattern "$protocol" 'as the turn ends, not as it starts'
+require_pattern "$lifecycle" '\[continuation\] orchestrate-implementation'
+require_pattern "$lifecycle" '\[continuation\] land-stack'
+require_pattern "$lifecycle" '\[continuation\] verify-landing'
+require_pattern "$lifecycle" '\[continuation\] review-fix-loop'
+require_pattern "$lifecycle" '\[continuation\] codebase-docs-cleanup'
+require_pattern "$lifecycle" 'as the turn ends, not as it starts'
 reject_pattern "$protocol" 'as soon as the turn starts'
-require_pattern "$protocol" 'queue delete'
-require_pattern "$orchestrator" 'A run outlives one turn'
+require_pattern "$lifecycle" 'queue delete'
+require_pattern "$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md" 'A run outlives one turn'
 require_pattern "$ledger" 'continuation_message'
 
 # Wakes never stack, stale rows clear, and a terminal wake ends silently.
-require_pattern "$protocol" 'select\(.content'
-require_pattern "$protocol" 'end the turn silently'
-require_pattern "$protocol" 'safe to ignore'
+require_pattern "$lifecycle" 'select\(.content'
+require_pattern "$lifecycle" 'end the turn silently'
+require_pattern "$lifecycle" 'safe to ignore'
 
 # The continuation is a loop, so it needs its own caps.
-require_pattern "$protocol" 'no_progress'
-require_pattern "$protocol" 'Two consecutive'
+require_pattern "$lifecycle" 'no_progress'
+require_pattern "$lifecycle" 'Two consecutive'
 require_pattern "$ledger" 'since_last_transition'
 require_pattern "$ledger" 'run_workers'
 require_pattern "$ledger" 'continuations'
@@ -72,29 +73,29 @@ require_pattern "$ledger" 'continuations'
 # turn every 25-30 seconds for hours, each one re-sweeping one PR and
 # re-queueing itself, because an immediate continuation plus a sweep that
 # counted as a transition made the loop legal.
-require_pattern "$protocol" 'Never end a turn while a worker is active'
-require_pattern "$protocol" '\[continuation\].*--send-at 10m'
-require_pattern "$protocol" 'unchanged sweep is not a transition'
-require_pattern "$protocol" 'nothing pending'
+require_pattern "$lifecycle" 'Never end a turn while a worker is active'
+require_pattern "$lifecycle" '\[continuation\].*--send-at 10m'
+require_pattern "$lifecycle" 'unchanged sweep is not a transition'
+require_pattern "$lifecycle" 'nothing pending'
 
 # A queued continuation can be lost without dispatching, so a running ledger
 # needs an external watchdog, not only a paused one.
-require_pattern "$protocol" '## Watchdog'
-require_pattern "$protocol" 'idle with an empty queue'
-require_pattern "$protocol" 'bb automation create --project "\$BB_PROJECT_ID" --name "watchdog'
-require_pattern "$protocol" 'codebase-docs-cleanup/run.json'
-require_pattern "$protocol" 'review-fix-loop/\*.json'
+require_pattern "$lifecycle" '## Watchdog'
+require_pattern "$lifecycle" 'idle with an empty queue'
+require_pattern "$lifecycle" 'bb automation create --project "\$BB_PROJECT_ID" --name "watchdog'
+require_pattern "$lifecycle" 'codebase-docs-cleanup/run.json'
+require_pattern "$lifecycle" 'review-fix-loop/\*.json'
 require_pattern "$ledger" 'watchdog_automation'
 require_pattern "$orchestrator" 'watchdog'
-require_pattern "$protocol" 'manual-stop'
+require_pattern "$lifecycle" 'manual-stop'
 
 # One thread cannot hold a long run.
-require_pattern "$protocol" '## Relay to a successor'
-require_pattern "$protocol" 'contextWindowUsage'
-require_pattern "$protocol" 'bb thread context --self --json'
-require_pattern "$protocol" 'Never fork for this'
-require_pattern "$protocol" 'Continue this <skill> run from the attached ledger'
-require_pattern "$protocol" 'relay.predecessor'
+require_pattern "$lifecycle" '## Relay to a successor'
+require_pattern "$lifecycle" 'contextWindowUsage'
+require_pattern "$lifecycle" 'bb thread context --self --json'
+require_pattern "$lifecycle" 'Never fork for this'
+require_pattern "$lifecycle" 'Continue this <skill> run from the attached ledger'
+require_pattern "$lifecycle" 'relay.predecessor'
 require_pattern "$ledger" 'relay.successor|"relay"'
 
 # A red target branch is inherited, not caused.
@@ -124,12 +125,12 @@ require_pattern "$orchestrator" 'repeat_validation'
 require_pattern "$ledger" 'repeat_validation'
 
 # A pause without a class reaches nobody and clears itself never.
-require_pattern "$protocol" '`class` is never omitted'
-require_pattern "$protocol" 'written without `class` is a `decision` pause'
+require_pattern "$lifecycle" '`class` is never omitted'
+require_pattern "$lifecycle" 'written without `class` is a `decision` pause'
 
 # A notify command that does not run is not a notification.
-require_pattern "$protocol" 'notify.verified'
-require_pattern "$protocol" 'Probe the match once'
+require_pattern "$lifecycle" 'notify.verified'
+require_pattern "$lifecycle" 'Probe the match once'
 require_pattern "$ledger" '"verified"'
 
 if (( failed )); then

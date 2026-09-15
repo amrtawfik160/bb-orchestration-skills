@@ -100,8 +100,7 @@ for skill in "$orchestrator" "$loop"; do
   require_pattern "$skill" 'required Standards and Spec subagents'
   prompts="$skill"
   [[ "$skill" == "$orchestrator" ]] && prompts="$orchestrator_prompts"
-  require_pattern "$prompts" 'Every prompt ends with'
-  require_pattern "$prompts" 'End with the attached WORKER_RESULT footer'
+  require_pattern "$repo_root/skills/bb-worker-protocol/references/bb-workers.md" 'End with the attached WORKER_RESULT footer'
   reject_pattern "$skill" 'At most three review attempts'
   reject_pattern "$skill" 'Allow at most two'
   reject_pattern "$skill" 'two fix attempts'
@@ -113,8 +112,19 @@ done
 # Disclosed prompt files carry the same size budget as inline prompts.
 check_prompt_size "$repo_root/skills/codebase-docs-cleanup/references/worker-prompts.md"
 
-# The worker protocol stays a single linear read; growth past this budget must
-# earn a split instead of accreting.
+# Each half of the protocol stays a single linear read. bb-workers.md hit 550
+# once and earned the split into per-worker and between-turns; growth past
+# these budgets must earn the next split rather than accrete.
+lifecycle="$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md"
+for half in "$protocol" "$lifecycle"; do
+  half_lines=$(wc -l <"$half")
+  if (( half_lines > 320 )); then
+    printf 'FAIL %s: %s lines exceeds worker-protocol budget\n' \
+      "${half#"$repo_root"/}" "$half_lines"
+    failed=1
+  fi
+done
+
 protocol_lines=$(wc -l <"$protocol")
 if (( protocol_lines > 550 )); then
   printf 'FAIL %s: %s lines exceeds worker-protocol budget\n' \

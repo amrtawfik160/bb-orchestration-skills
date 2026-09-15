@@ -24,8 +24,6 @@ ticket: it walks a three-ticket run with the real values at every gate.
   `/code-review` may create only its required Standards and Spec subagents.
   These gates are mechanical, not policy: nobody's authority exempts a run
   from them, and an offer to take the blame does not change what merges.
-- Give every phase a fresh visible BB thread in the ticket environment; never
-  fork or reuse a worker.
 - Pin the graph, target branch, and each `ticket-base`. Mutating workers commit
   and leave a clean tree; reviewers and checkers preserve it. Verify every
   worker claim in the worktree before recording it.
@@ -37,15 +35,15 @@ ticket: it walks a three-ticket run with the real values at every gate.
   and the parent Spec stays unchanged.
 - Cross-ticket integration belongs to an explicit approved ticket. Do not make
   an implicit cumulative implementation or final mega-PR.
-- A run outlives one turn. End a turn only in a terminal state or with a
-  continuation queued per `bb-workers.md`, and open every turn with the PR
-  check sweep in `../bb-worker-protocol/references/pr-stack.md`.
+- Open every turn with the PR check sweep in
+  `../bb-worker-protocol/references/pr-stack.md`.
 
 ## References
 
-`../bb-worker-protocol/SKILL.md` indexes the shared runtime;
-`../bb-worker-protocol/references/bb-workers.md` is the one you are in most
-often. This skill adds `references/worker-prompts.md` for worker prompts and
+`../bb-worker-protocol/SKILL.md` indexes the shared runtime:
+`../bb-worker-protocol/references/bb-workers.md` for one worker,
+`../bb-worker-protocol/references/run-lifecycle.md` for what happens between
+turns. This skill adds `references/worker-prompts.md` for worker prompts and
 `references/recovery.md` for older single-branch runs.
 
 ## Modes

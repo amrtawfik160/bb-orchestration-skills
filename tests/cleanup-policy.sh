@@ -109,8 +109,8 @@ reject_pattern "$skill" 'bb thread wait' 'restates the shared wait protocol'
 
 # A cleanup outlives one turn: it continues from its ledger like every run,
 # and the watchdog covers turns that end with nothing queued.
-require_pattern "$skill" 'A run outlives one turn'
-require_pattern "$skill" '`\[continuation\]` template queued per'
+require_pattern "$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md" 'A run outlives one turn'
+require_pattern "$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md" '\[continuation\]'
 require_pattern "$skill" 'watchdog automation from `bb-workers.md`'
 require_pattern "$ledger" 'watchdog_automation'
 require_pattern "$ledger" 'continuation_message'

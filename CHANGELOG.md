@@ -1,5 +1,53 @@
 # Changelog
 
+## 2026-09-15 — Single sources, split protocol, lighter loads
+
+A pruning pass over the whole bundle, with the behaviour scenarios re-run after
+every cut to prove the discipline survived the shortening. It did: 25/25 before
+and after.
+
+### One rule, one place
+
+Four rules were restated across skill contracts that `bb-worker-protocol`
+already owned — one worker at a time, a run outliving its turn, the
+`WORKER_RESULT` footer line, preferring `gh-axi` over raw `gh`. A restatement
+is a two-place edit waiting to drift, and it inflates a runtime rule into
+something that reads like the skill's own contract.
+
+A new test keeps each of those to exactly one file. It found a fifth copy on
+its first run that plain grep could not see, because the sentence wrapped, and
+it caught a rule that had been deleted everywhere without anything picking it
+up.
+
+### The protocol earned its split
+
+`bb-workers.md` hit its 550-line budget, whose comment said growth must earn a
+split rather than accrete. It is now three files: `bb-workers.md` for one
+worker, `run-lifecycle.md` for what happens between turns, and `github.md` for
+`gh` access, each with its own budget.
+
+That made a real difference for `land-stack`, which spawns no workers at all
+and had been loading 280 lines of worker mechanics to reach one GitHub section.
+It now loads 24% less. `verify-landing` needs all three halves and reads
+slightly more than before.
+
+### Loads
+
+| Skill | Words loaded, before → after |
+|---|---|
+| `land-stack` | 7077 → 5395 |
+| `orchestrate-implementation` | 7782 → 7631 |
+| `codebase-docs-cleanup` | 7946 → 7798 |
+| `review-fix-loop` | 6084 → 5956 |
+| `verify-landing` | 5752 → 5822 |
+
+### The scenario harness was testing a fiction
+
+It loaded `SKILL.md` alone, so a rule correctly living in a reference file read
+as missing. That would have punished every move toward a single source of
+truth. It now loads a skill the way a run does: the file plus the references it
+points at, about 6000 words instead of 1500.
+
 ## 2026-09-15 — Shared runtime, behaviour tests, gates you can tick off
 
 The bundle had five skills reaching sideways into each other's `references/`,

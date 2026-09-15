@@ -7,6 +7,7 @@ set -euo pipefail
 # a bb release that changes the fact fails here instead of in a live run.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
+lifecycle="$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md"
 failed=0
 
 require_pattern() {
@@ -62,13 +63,13 @@ require_pattern "$protocol" 'maxPermissionMode'
 require_pattern "$protocol" 'bb project attachment upload'
 
 # Workers are visible and openable; legacy hidden workers promote and count differently.
-require_pattern "$protocol" 'bb thread update "\$WORKER" --visibility visible'
-require_pattern "$protocol" 'bb thread open "\$WORKER"'
+require_pattern "$lifecycle" 'bb thread update "\$WORKER" --visibility visible'
+require_pattern "$lifecycle" 'bb thread open "\$WORKER"'
 require_pattern "$protocol" 'exclude\s+hidden threads'
 
 # The single-shot resume needs no cleanup; the automation remains the fallback.
-require_pattern "$protocol" '--send-at 15m'
-require_pattern "$protocol" 'bb thread queue delete'
+require_pattern "$lifecycle" '--send-at 15m'
+require_pattern "$lifecycle" 'bb thread queue delete'
 
 if ! command -v bb >/dev/null 2>&1; then
   echo 'SKIP bb is not on PATH; verified protocol text only'
