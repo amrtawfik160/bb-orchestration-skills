@@ -10,7 +10,8 @@ verify="$repo_root/skills/verify-landing/SKILL.md"
 redmain="$repo_root/skills/verify-landing/references/red-main.md"
 land="$repo_root/skills/land-stack/SKILL.md"
 ledger="$repo_root/skills/bb-worker-protocol/references/run-ledger.md"
-protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
+protocol="$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md"
+lifecycle="$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md"
 failed=0
 
 require_pattern() {
@@ -38,14 +39,15 @@ reject_pattern() {
 # Order, workers, and gating.
 require_pattern "$verify" 'Verify oldest first'
 require_pattern "$verify" 'oldest unverified ticket'
-require_pattern "$verify" 'fresh visible BB thread in one verify environment'
+require_pattern "$verify" 'sharing one verify worktree at the target head'
+require_pattern "$verify" 'Create one managed worktree at the target head'
 require_pattern "$verify" 'merge-commit checks'
 require_pattern "$verify" 'commits/<merge-sha>/check-runs'
 require_pattern "$verify" 'Resolve `smoke`'
 require_pattern "$verify" 'outside the run.s `ci_baseline` and quarantine'
 require_pattern "$verify" 'references/red-main.md'
 require_pattern "$verify" 'state: landed'
-require_pattern "$verify" 'A run outlives one turn'
+require_pattern "$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md" 'A run outlives one turn'
 
 # The gate footer names its own verdict.
 require_pattern "$verify" '^VERIFY_GATE:'
@@ -59,7 +61,7 @@ require_pattern "$verify" 'starts at the first unverified ticket'
 reject_pattern "$verify" '^disable-model-invocation: true$'
 require_pattern "$land" '/verify-landing <ledger path>'
 require_pattern "$land" 'verification proves the target'
-require_pattern "$protocol" '\[continuation\] verify-landing'
+require_pattern "$lifecycle" '\[continuation\] verify-landing'
 
 # Red-main response: classify, revert first by default, record, notify.
 require_pattern "$redmain" 'Silence is the only forbidden move'

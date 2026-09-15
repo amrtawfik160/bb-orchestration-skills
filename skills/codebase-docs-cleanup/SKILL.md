@@ -27,16 +27,14 @@ arbitrary source files, redesign the product, or change behavior.
   repository.
 - No deletion quota, target file count, or line limit. Success is less competing
   context carrying the same useful knowledge and behavior.
-- Every inventory, batch, and navigation check runs in its own visible BB
-  thread sharing the cleanup worktree, so the run is watchable from the IDE.
-- A run outlives one turn. End a turn only in a terminal state or with the
-  skill's `[continuation]` template queued per `bb-workers.md`.
+- Every inventory, batch, and navigation check shares the cleanup worktree.
 
 ## References
 
 Follow `../bb-worker-protocol/references/bb-workers.md` for spawning, waiting,
-interactions, result parsing, verification, budgets, pausing, continuation,
-auto-resume, the watchdog, and notification, and attach
+interactions, result parsing, verification, and budgets, and
+`../bb-worker-protocol/references/run-lifecycle.md` for what happens between
+turns. Attach
 `../bb-worker-protocol/references/worker-footer.md` to every worker.
 `references/inventory.md` owns the classification, evidence, and decision
 rules used during Inventory and Plan. `references/pruning.md` owns the
@@ -106,8 +104,7 @@ create a permanent cleanup report inside the repository unless the user asks.
 ## Worker prompts
 
 `references/worker-prompts.md` holds the inventory, cleanup batch, and
-cold-start prompts. Every prompt ends with `End with the attached
-WORKER_RESULT footer.`
+cold-start prompts.
 
 ## Gates
 

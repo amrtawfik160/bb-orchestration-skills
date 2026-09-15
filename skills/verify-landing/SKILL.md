@@ -14,24 +14,19 @@ visible BB thread sharing one verify worktree at the target head.
 
 - Verify oldest first. A merge is proven only when its merge-commit checks
   are green net of `ci_baseline` and quarantine, and smoke validation passes.
-- Give every merge a fresh visible BB thread in one verify environment.
-  Never fork or reuse a worker.
 - A red target gets a response, never silence. Follow
   `references/red-main.md`: fix forward only when the cause is known and one
   ticket heals it, else revert first and file the fix.
 - Work from the ledger: read `run.json`, write every transition.
-- A run outlives one turn. End a turn only in a terminal state or with the
-  skill's `[continuation]` template queued per `bb-workers.md`.
 
 ## References
 
-Follow `../bb-worker-protocol/references/bb-workers.md` for spawning, waiting,
-interactions, verification, budgets, pausing, continuation, notification,
-auto-resume, and its GitHub section; prefer the `gh-axi` skill over raw `gh`,
-reading current syntax from the CLI. The `gh` commands below define what must
-be true, not which binary runs it. The ledger schema is
-`../bb-worker-protocol/references/run-ledger.md`; verification fills
-`tickets.<id>.verification` and the top-level `verification` object.
+`../bb-worker-protocol/references/bb-workers.md` runs each verify worker,
+`../bb-worker-protocol/references/github.md` decides how the `gh` commands
+below actually run, and `../bb-worker-protocol/references/run-lifecycle.md`
+carries the run between turns. The
+ledger schema is `../bb-worker-protocol/references/run-ledger.md`; verification
+fills `tickets.<id>.verification` and the top-level `verification` object.
 
 ## Prepare
 

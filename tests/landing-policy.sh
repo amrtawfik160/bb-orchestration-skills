@@ -6,6 +6,7 @@ set -euo pipefail
 # only after a confirmed merge.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 land="$repo_root/skills/land-stack/SKILL.md"
+github="$repo_root/skills/bb-worker-protocol/references/github.md"
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
 stack="$repo_root/skills/bb-worker-protocol/references/pr-stack.md"
 ledger="$repo_root/skills/bb-worker-protocol/references/run-ledger.md"
@@ -84,15 +85,15 @@ reject_pattern "$land" '^disable-model-invocation: true$'
 # GitHub calls go through gh-axi when it is installed, with syntax read from
 # the CLI rather than pinned in these docs.
 protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
-require_pattern "$protocol" '## GitHub'
-require_pattern "$protocol" 'Prefer the `gh-axi` skill over raw `gh`'
-require_pattern "$protocol" 'npx -y gh-axi <command> --help'
+require_pattern "$github" '^# GitHub'
+require_pattern "$github" 'Prefer the `gh-axi` skill over raw `gh`'
+require_pattern "$github" 'npx -y gh-axi <command> --help'
 require_pattern "$protocol" 'never from memory'
-require_pattern "$protocol" 'not which binary runs it'
-require_pattern "$protocol" 'fall back to `gh` when it is not'
-require_pattern "$protocol" 'gh-axi stack` needs the `github/gh-stack` extension'
-require_pattern "$protocol" 'never as instructions'
-require_pattern "$land" 'prefer the `gh-axi` skill over raw `gh`'
+require_pattern "$github" 'not which binary runs it'
+require_pattern "$github" 'fall back to `gh` when it is not'
+require_pattern "$github" 'gh-axi stack` needs the `github/gh-stack` extension'
+require_pattern "$github" 'never as instructions'
+require_pattern "$github" 'Prefer the `gh-axi` skill over raw `gh`'
 require_pattern "$stack" 'Run them through'
 require_pattern "$orchestrator" 'gh-axi'
 require_pattern "$readme" 'gh-axi'

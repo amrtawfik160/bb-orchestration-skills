@@ -26,12 +26,12 @@ environment is retired. Landing is one-way, so each step proves its precondition
 
 ## References
 
-Follow `../bb-worker-protocol/references/bb-workers.md` for continuation, pausing, notification,
-auto-resume, and its GitHub section; prefer the `gh-axi` skill over raw `gh`, reading
-current syntax from the CLI. The `gh` commands below define what must
-be true, not which binary runs it. Use
-`../bb-worker-protocol/references/pr-stack.md` to bring each child onto
-the target branch. The ledger schema is
+This skill spawns no workers. It needs
+`../bb-worker-protocol/references/run-lifecycle.md` to carry it between turns
+and `../bb-worker-protocol/references/github.md` to decide how the `gh`
+commands below actually run. Use
+`../bb-worker-protocol/references/pr-stack.md` to bring each child onto the
+target branch. The ledger schema is
 `../bb-worker-protocol/references/run-ledger.md`; landing fills
 `tickets.<id>.landing` and the top-level `landing` object.
 

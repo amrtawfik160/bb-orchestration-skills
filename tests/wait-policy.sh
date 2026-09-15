@@ -6,6 +6,7 @@ set -euo pipefail
 # point at it instead of restating it.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
+lifecycle="$repo_root/skills/bb-worker-protocol/references/run-lifecycle.md"
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
 loop="$repo_root/skills/review-fix-loop/SKILL.md"
 failed=0
@@ -54,8 +55,8 @@ require_pattern "$protocol" '--visibility visible'
 require_pattern "$protocol" 'bb thread stop'
 require_pattern "$protocol" 'forward the question to the user verbatim and pause'
 require_pattern "$protocol" 'interactions answer'
-require_pattern "$protocol" '## Pause'
-require_pattern "$protocol" 'state: paused'
+require_pattern "$lifecycle" '## Pause'
+require_pattern "$lifecycle" 'state: paused'
 require_pattern "$protocol" '## Budgets'
 require_pattern "$protocol" 'reason: budget'
 

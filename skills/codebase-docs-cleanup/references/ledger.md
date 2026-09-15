@@ -112,9 +112,7 @@ Field notes:
 
 ## Execution records
 
-Default `execution.mode` is `bb-threads`: one visible BB thread per inventory
-partition, batch, and navigation check, all sharing the cleanup worktree.
-Worker fields hold BB thread IDs. The
-single-thread alternative in
-`../../bb-worker-protocol/references/subagents.md` applies only on explicit user
-request.
+The unit here is one visible BB thread per inventory partition, batch, and
+navigation check, all sharing the cleanup worktree.
+`../../bb-worker-protocol/references/run-ledger.md` owns what a worker record
+holds and what the single-thread alternative changes.

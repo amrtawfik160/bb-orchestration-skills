@@ -13,8 +13,6 @@ the IDE; all phases share one ticket environment and worktree.
 
 - Keep one orchestrator-spawned BB worker active. `/code-review` may create its
   required Standards and Spec subagents; those subagents create no descendants.
-- Give every phase a fresh visible BB thread in one ticket environment.
-  Never fork or reuse a worker.
 - Pin one immutable review base. Reviews and checks are read-only; fixes commit,
   validate, and leave the tree clean. Verify every claim in the worktree.
 - Return a clean gate to the caller. The caller owns branch push and PR creation;
@@ -22,9 +20,10 @@ the IDE; all phases share one ticket environment and worktree.
 
 ## References
 
-`../bb-worker-protocol/SKILL.md` indexes the shared runtime;
-`../bb-worker-protocol/references/bb-workers.md` is the one you are in most
-often. Attach `../bb-worker-protocol/references/worker-footer.md` to every
+`../bb-worker-protocol/SKILL.md` indexes the shared runtime:
+`../bb-worker-protocol/references/bb-workers.md` for one worker,
+`../bb-worker-protocol/references/run-lifecycle.md` for what happens between
+turns. Attach `../bb-worker-protocol/references/worker-footer.md` to every
 spawn. Keep `references/ledger.md` after each transition.
 
 ## Prepare
@@ -51,8 +50,7 @@ the finding check.
 
 ## Worker prompts
 
-Attach sources instead of pasting or restating them. Every prompt ends with
-`End with the attached WORKER_RESULT footer.`
+Spawn and attachment rules live in `bb-workers.md`.
 
 Review:
 
