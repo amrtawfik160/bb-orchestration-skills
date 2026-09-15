@@ -16,6 +16,17 @@ require_pattern() {
   fi
 }
 
+# Prose wraps, so match it with line breaks collapsed to single spaces.
+require_phrase() {
+  local file=$1
+  local pattern=$2
+
+  if ! tr '\n' ' ' <"$file" | tr -s ' ' | grep -Eq -- "$pattern"; then
+    printf 'FAIL %s: missing contract /%s/\n' "${file#"$repo_root"/}" "$pattern"
+    failed=1
+  fi
+}
+
 reject_pattern() {
   local file=$1
   local pattern=$2
@@ -50,7 +61,40 @@ check_prompt_size() {
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
 orchestrator_prompts="$repo_root/skills/orchestrate-implementation/references/worker-prompts.md"
 loop="$repo_root/skills/review-fix-loop/SKILL.md"
-protocol="$repo_root/skills/review-fix-loop/references/bb-workers.md"
+protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
+
+# Compactness. Measured in words, not lines: a line budget charges a numbered
+# checklist more than the paragraph it replaced, which is backwards, since the
+# checklist is the more scannable of the two. The budget also measures procedure
+# only. A rationalization table is enforcement, useful exactly where an agent is
+# already rationalizing, so it stays inline under its own cap rather than
+# competing with the steps for the same allowance.
+check_compactness() {
+  local file=$1
+  local rules table flags
+  rules=$(awk '/^## (Rationalizations|Red flags)/ {skip = 1; next}
+               /^## / {skip = 0}
+               !skip' "$file" | wc -w)
+  table=$(awk '/^## Rationalizations/ {on = 1; next} /^## / {on = 0} on && /^\| / ' "$file" | wc -l)
+  flags=$(awk '/^## Red flags/ {on = 1; next} /^## / {on = 0} on && /^- / ' "$file" | wc -l)
+
+  if (( rules > 1100 )); then
+    printf 'FAIL %s: %s procedure words exceeds compactness budget\n' \
+      "${file#"$repo_root"/}" "$rules"
+    failed=1
+  fi
+  # Header plus separator plus at most twelve excuses.
+  if (( table > 14 )); then
+    printf 'FAIL %s: %s rationalization rows exceeds its cap\n' \
+      "${file#"$repo_root"/}" "$table"
+    failed=1
+  fi
+  if (( flags > 8 )); then
+    printf 'FAIL %s: %s red flags exceeds its cap\n' \
+      "${file#"$repo_root"/}" "$flags"
+    failed=1
+  fi
+}
 
 for skill in "$orchestrator" "$loop"; do
   require_pattern "$skill" 'required Standards and Spec subagents'
@@ -63,12 +107,7 @@ for skill in "$orchestrator" "$loop"; do
   reject_pattern "$skill" 'two fix attempts'
   check_prompt_size "$prompts"
 
-  lines=$(wc -l <"$skill")
-  if (( lines > 130 )); then
-    printf 'FAIL %s: %s lines exceeds compactness budget\n' \
-      "${skill#"$repo_root"/}" "$lines"
-    failed=1
-  fi
+  check_compactness "$skill"
 done
 
 # Disclosed prompt files carry the same size budget as inline prompts.
@@ -118,7 +157,7 @@ require_pattern "$orchestrator" 'LOOP_GATE\.verdict: PASS'
 require_pattern "$orchestrator" 'tight red reproduction'
 require_pattern "$orchestrator" '/improve-codebase-architecture'
 require_pattern "$orchestrator" 'raw bugs.*triage|triage.*raw bugs'
-require_pattern "$orchestrator" 'missing edges, cycles, or a'
+require_phrase "$orchestrator" 'missing edges, cycles, or a ticket without acceptance criteria'
 require_pattern "$orchestrator" 'ticket without acceptance criteria'
 require_pattern "$orchestrator" 'ready-for-agent'
 require_pattern "$orchestrator_prompts" "ticket's seams"

@@ -5,7 +5,7 @@ set -euo pipefail
 # Behavior test: the documented parent-merge procedure in pr-stack.md keeps a
 # child PR at one ticket after both a merge commit and a squash merge.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-stack="$repo_root/skills/orchestrate-implementation/references/pr-stack.md"
+stack="$repo_root/skills/bb-worker-protocol/references/pr-stack.md"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 failed=0

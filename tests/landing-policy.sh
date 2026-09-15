@@ -7,8 +7,8 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 land="$repo_root/skills/land-stack/SKILL.md"
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
-stack="$repo_root/skills/orchestrate-implementation/references/pr-stack.md"
-ledger="$repo_root/skills/orchestrate-implementation/references/ledger.md"
+stack="$repo_root/skills/bb-worker-protocol/references/pr-stack.md"
+ledger="$repo_root/skills/bb-worker-protocol/references/run-ledger.md"
 readme="$repo_root/README.md"
 failed=0
 
@@ -83,7 +83,7 @@ reject_pattern "$land" '^disable-model-invocation: true$'
 
 # GitHub calls go through gh-axi when it is installed, with syntax read from
 # the CLI rather than pinned in these docs.
-protocol="$repo_root/skills/review-fix-loop/references/bb-workers.md"
+protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
 require_pattern "$protocol" '## GitHub'
 require_pattern "$protocol" 'Prefer the `gh-axi` skill over raw `gh`'
 require_pattern "$protocol" 'npx -y gh-axi <command> --help'

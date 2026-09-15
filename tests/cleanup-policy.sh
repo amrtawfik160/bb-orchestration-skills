@@ -102,8 +102,8 @@ require_pattern "$pruning" 'Preserve public APIs'
 require_pattern "$inventory" 'an unreferenced file is not automatically useless'
 
 # The skill reuses the shared worker protocol instead of restating it.
-require_pattern "$skill" '\.\./review-fix-loop/references/bb-workers.md'
-require_pattern "$skill" '\.\./review-fix-loop/references/worker-footer.md'
+require_pattern "$skill" '\.\./bb-worker-protocol/references/bb-workers.md'
+require_pattern "$skill" '\.\./bb-worker-protocol/references/worker-footer.md'
 reject_pattern "$skill" '^## Wait' 'restates the shared wait protocol'
 reject_pattern "$skill" 'bb thread wait' 'restates the shared wait protocol'
 

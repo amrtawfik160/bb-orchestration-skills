@@ -31,13 +31,19 @@ for skill_dir in "$repo_root"/skills/*/; do
     fail "skills/$name/SKILL.md: missing description"
   fi
 
-  # Every backticked relative reference path must exist.
-  while read -r ref; do
+  # Every backticked relative reference path must exist. Resolve it from the
+  # directory of the file that wrote it, not from the skill root: a reference
+  # linking to another reference is one ../ shallower, and checking only
+  # SKILL.md let two broken links through a whole refactor.
+  while read -r src ref; do
     [[ -z "$ref" ]] && continue
-    if [[ ! -f "$skill_dir/$ref" ]]; then
-      fail "skills/$name/SKILL.md: referenced file '$ref' does not exist"
+    if [[ ! -f "$(dirname "$src")/$ref" ]]; then
+      fail "${src#"$repo_root"/}: referenced file '$ref' does not exist"
     fi
-  done < <(grep -oE '`(\.\./[a-z-]+/)?references/[a-z-]+\.md`' "$skill" | tr -d '`' | sort -u)
+  done < <(
+    grep -rhoE --include='*.md' -H '`(\.\./)*[a-z0-9-]*/?references/[a-z0-9-]+\.md`' "$skill_dir" \
+      | tr -d '`' | tr ':' ' ' | sort -u
+  )
 
   if ! grep -q "\"$name\"" "$repo_root/skills.sh.json"; then
     fail "skills.sh.json: does not list $name"
@@ -45,10 +51,36 @@ for skill_dir in "$repo_root"/skills/*/; do
 done
 
 # JSON examples inside reference files must parse.
-for ref in "$repo_root"/skills/*/references/ledger.md; do
+for ref in "$repo_root"/skills/*/references/ledger.md \
+           "$repo_root"/skills/bb-worker-protocol/references/run-ledger.md; do
   if ! awk '/^```json$/ {on=1; next} /^```$/ {on=0} on' "$ref" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
     fail "${ref#"$repo_root"/}: JSON example does not parse"
   fi
+done
+
+# Dependencies point down, never sideways. Anything more than one skill needs
+# belongs in bb-worker-protocol; reaching into a peer's references/ breaks the
+# moment that peer is installed on its own.
+while read -r offender; do
+  [[ -z "$offender" ]] && continue
+  fail "$offender: reaches into a peer skill's references/; move the shared file to bb-worker-protocol"
+done < <(
+  grep -rnoE '\.\./(\.\./)?[a-z-]+/references/' "$repo_root"/skills --include='*.md' \
+    | grep -v '/bb-worker-protocol/references/' \
+    | cut -d: -f1-2
+)
+
+# Every scenario names a real skill and both verdicts.
+for scenario in "$repo_root"/tests/scenarios/*.md; do
+  [[ "$(basename "$scenario")" == 'README.md' ]] && continue
+  rel="${scenario#"$repo_root"/}"
+  skill_name=$(sed -n '1,/^---$/p' "$scenario" | sed -n 's/^skill: //p')
+  [[ -f "$repo_root/skills/$skill_name/SKILL.md" ]] \
+    || fail "$rel: names skill '$skill_name', which does not exist"
+  for key in expect forbid; do
+    sed -n '1,/^---$/p' "$scenario" | grep -q "^$key: " \
+      || fail "$rel: missing '$key:' in its header"
+  done
 done
 
 if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$repo_root/skills.sh.json" 2>/dev/null; then

@@ -34,10 +34,10 @@ arbitrary source files, redesign the product, or change behavior.
 
 ## References
 
-Follow `../review-fix-loop/references/bb-workers.md` for spawning, waiting,
+Follow `../bb-worker-protocol/references/bb-workers.md` for spawning, waiting,
 interactions, result parsing, verification, budgets, pausing, continuation,
 auto-resume, the watchdog, and notification, and attach
-`../review-fix-loop/references/worker-footer.md` to every worker.
+`../bb-worker-protocol/references/worker-footer.md` to every worker.
 `references/inventory.md` owns the classification, evidence, and decision
 rules used during Inventory and Plan. `references/pruning.md` owns the
 readability and prose rules each cleanup batch applies.
@@ -66,9 +66,10 @@ next batch.
 4. Limit the first pass to first-party source, tests, configuration, and
    documentation. Vendored files, dependencies, generated output, submodules,
    and external directories are separate scope.
-5. Resolve `validation` from real scripts, configuration, and CI. Run it once at
-   `cleanup-base` and record the result, its known failures, and any unavailable
-   dependency as the baseline.
+5. Resolve and record `validation` per
+   `../bb-worker-protocol/references/validation.md`, reading it from real
+   scripts, configuration, and CI. Run it once at `cleanup-base` for the
+   baseline, including its known failures and any unavailable dependency.
    A failure already in the baseline is never evidence against a later batch.
 6. Write the ledger and create the watchdog automation from `bb-workers.md`.
    Do not reset, force-clean, push, or open a pull request unless separately
@@ -148,6 +149,26 @@ the recorded baseline, and distinguish a pass from a skipped check and from a
 pre-existing failure. Confirm that unique rationale, domain definitions,
 operational requirements, and project constraints survived, then recheck Git
 status in both the worktree and the source checkout.
+
+## Rationalizations
+
+| Excuse | Reality |
+|---|---|
+| "This doc is stale, the code says otherwise — delete it" | A contradiction is a finding. Report it; do not delete the requirement to make the conflict disappear. |
+| "Nothing unique in this file, it's all in the code" | Prove it by naming where. A deletion needs a verified reason *and* a named destination for what it carried. |
+| "While I'm here, this module could be restructured" | Documentation and readability only. Not a refactor, dependency update, or architecture migration. |
+| "The cold-start worker got confused, spawn a smarter one" | A worker that has to guess is a failing pointer, not a failing worker. Fix the pointer, then recheck with a new worker. |
+| "Validation failed, but it was probably already failing" | Compare against the recorded baseline. "Probably" is how a cleanup ships a regression. |
+| "Inventory workers are read-only, so fan out the batches too" | Batches commit. Anything that writes stays serial and verified before the next one starts. |
+| "A big deletion count proves it worked" | There is no quota. Success is less competing context carrying the same knowledge. |
+
+## Red flags — stop
+
+- About to delete a file whose unique knowledge has no named destination
+- About to run two mutating batches at once
+- About to carry a new validation failure into the next batch
+- About to reformat, upgrade, or restructure code the inventory did not flag
+- About to apply edits when the user only asked for an assessment
 
 ## Finish
 

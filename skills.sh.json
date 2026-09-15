@@ -21,6 +21,13 @@
       ]
     },
     {
+      "title": "Shared runtime",
+      "description": "The BB worker protocol, run ledger, PR stack procedure, and worker footer that every orchestration skill above depends on. Install it alongside any of them; it is never invoked on its own.",
+      "skills": [
+        "bb-worker-protocol"
+      ]
+    },
+    {
       "title": "Bundled helpers",
       "description": "Skills the orchestrator gives its workers. show-me is vendored from humanlayer/skills (MIT).",
       "skills": [

@@ -11,10 +11,10 @@ set -euo pipefail
 #   thr_qanmy8ufx3: 1 of 16 tickets, paused on a check that also fails on the
 #                   target branch, with a pause record carrying no `class`.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-protocol="$repo_root/skills/review-fix-loop/references/bb-workers.md"
+protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
-stack="$repo_root/skills/orchestrate-implementation/references/pr-stack.md"
-ledger="$repo_root/skills/orchestrate-implementation/references/ledger.md"
+stack="$repo_root/skills/bb-worker-protocol/references/pr-stack.md"
+ledger="$repo_root/skills/bb-worker-protocol/references/run-ledger.md"
 land="$repo_root/skills/land-stack/SKILL.md"
 failed=0
 
@@ -117,8 +117,10 @@ require_pattern "$ledger" '"gate"'
 require_pattern "$ledger" 'absent verdict blocks the PR'
 
 # One green run cannot tell a passing test from a flaky one.
-require_pattern "$orchestrator" 'Repeat the affected suite'
-require_pattern "$orchestrator" 'time, clocks, concurrency'
+validation="$repo_root/skills/bb-worker-protocol/references/validation.md"
+require_pattern "$validation" 'Rerun the affected suite'
+require_pattern "$validation" 'time, clocks, concurrency'
+require_pattern "$orchestrator" 'repeat_validation'
 require_pattern "$ledger" 'repeat_validation'
 
 # A pause without a class reaches nobody and clears itself never.

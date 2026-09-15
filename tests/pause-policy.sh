@@ -5,8 +5,8 @@ set -euo pipefail
 # Regression: a pause must be classified, a decision pause must reach the user,
 # and only a transient pause may auto-resume.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-protocol="$repo_root/skills/review-fix-loop/references/bb-workers.md"
-run_ledger="$repo_root/skills/orchestrate-implementation/references/ledger.md"
+protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
+run_ledger="$repo_root/skills/bb-worker-protocol/references/run-ledger.md"
 loop_ledger="$repo_root/skills/review-fix-loop/references/ledger.md"
 failed=0
 

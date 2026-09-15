@@ -92,6 +92,6 @@ Field notes:
 Default `execution.mode` is `bb-threads`: one visible BB thread per phase in
 one ticket environment. Each worker records `thread`,
 phase/status, pinned base/head, verified result, and a durable output path.
-The single-thread alternative in `references/subagents.md` applies only on
+The single-thread alternative in `../../bb-worker-protocol/references/subagents.md` applies only on
 explicit user request; its native workers record `backend: subagents`,
 `agent_id`, `agent_session`, and `lease` instead of BB thread fields.

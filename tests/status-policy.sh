@@ -70,12 +70,40 @@ require_pattern "$status" 'a missing gate verdict is a finding'
 require_pattern "$orchestrator" 'rendered per `/run-status`'
 
 # The new skill keeps the compactness budget.
-lines=$(wc -l <"$status")
-if (( lines > 130 )); then
-  printf 'FAIL %s: %s lines exceeds compactness budget\n' \
-    "${status#"$repo_root"/}" "$lines"
-  failed=1
-fi
+# Compactness. Measured in words, not lines: a line budget charges a numbered
+# checklist more than the paragraph it replaced, which is backwards, since the
+# checklist is the more scannable of the two. The budget also measures procedure
+# only. A rationalization table is enforcement, useful exactly where an agent is
+# already rationalizing, so it stays inline under its own cap rather than
+# competing with the steps for the same allowance.
+check_compactness() {
+  local file=$1
+  local rules table flags
+  rules=$(awk '/^## (Rationalizations|Red flags)/ {skip = 1; next}
+               /^## / {skip = 0}
+               !skip' "$file" | wc -w)
+  table=$(awk '/^## Rationalizations/ {on = 1; next} /^## / {on = 0} on && /^\| / ' "$file" | wc -l)
+  flags=$(awk '/^## Red flags/ {on = 1; next} /^## / {on = 0} on && /^- / ' "$file" | wc -l)
+
+  if (( rules > 1100 )); then
+    printf 'FAIL %s: %s procedure words exceeds compactness budget\n' \
+      "${file#"$repo_root"/}" "$rules"
+    failed=1
+  fi
+  # Header plus separator plus at most twelve excuses.
+  if (( table > 14 )); then
+    printf 'FAIL %s: %s rationalization rows exceeds its cap\n' \
+      "${file#"$repo_root"/}" "$table"
+    failed=1
+  fi
+  if (( flags > 8 )); then
+    printf 'FAIL %s: %s red flags exceeds its cap\n' \
+      "${file#"$repo_root"/}" "$flags"
+    failed=1
+  fi
+}
+
+check_compactness "$status"
 
 if (( failed )); then
   exit 1

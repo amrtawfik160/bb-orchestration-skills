@@ -5,7 +5,7 @@ set -euo pipefail
 # Regression: the wait protocol lives in one shared reference, and both skills
 # point at it instead of restating it.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-protocol="$repo_root/skills/review-fix-loop/references/bb-workers.md"
+protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
 loop="$repo_root/skills/review-fix-loop/SKILL.md"
 failed=0
@@ -33,7 +33,10 @@ reject_pattern() {
 }
 
 require_pattern "$protocol" 'bb thread wait "\$WORKER" --timeout 1200 --json'
-require_pattern "$protocol" 'exit 2 timeout'
+require_pattern "$protocol" '2 timeout'
+# Exit 1 is a bad ID or an unreachable server, never a slow worker.
+require_pattern "$protocol" '1 error'
+require_pattern "$protocol" 'Exit 1 is not a slow worker'
 require_pattern "$protocol" 'timeout means the worker is'
 require_pattern "$protocol" 'not a failed phase'
 require_pattern "$protocol" 'Listen; never poll'
@@ -56,7 +59,7 @@ require_pattern "$protocol" 'state: paused'
 require_pattern "$protocol" '## Budgets'
 require_pattern "$protocol" 'reason: budget'
 
-reject_pattern "$protocol" '--timeout 60'
+reject_pattern "$protocol" '--timeout 60([^0-9]|$)'
 reject_pattern "$protocol" 'Five consecutive timeouts'
 reject_pattern "$protocol" '--visibility hidden'
 reject_pattern "$protocol" 'unchanged window'
@@ -67,7 +70,7 @@ reject_pattern "$protocol" 'LAST_SEQ'
 
 # Both skills point at the protocol instead of restating it.
 require_pattern "$loop" 'references/bb-workers.md'
-require_pattern "$orchestrator" '\.\./review-fix-loop/references/bb-workers.md'
+require_pattern "$orchestrator" '\.\./bb-worker-protocol/references/bb-workers.md'
 for skill in "$orchestrator" "$loop"; do
   reject_pattern "$skill" '^## Wait'
   reject_pattern "$skill" 'bb thread wait <id>'
