@@ -124,18 +124,31 @@ an inline preview) instead of Claude Code's open command. It explains a topic
 with concise diagrams, code-shape sketches, and Mermaid. The orchestrator hands
 it to the PR worker; you can also invoke it directly.
 
+### `bb-worker-protocol`
+
+The runtime every skill above shares: how a run spawns workers, waits on them,
+verifies their claims, keeps its ledger, and stacks its pull requests. It is
+never invoked on its own, and it exists so that one worker rule is written once
+instead of five times. Install it alongside any other skill in this bundle;
+without it their reference links dangle.
+
 ## Reference files
 
-The skills stay short because the mechanics live in reference files:
+The skills stay short because the mechanics live in reference files. Anything
+more than one skill needs lives under `bb-worker-protocol`, so dependencies
+point down rather than sideways; a test fails any skill that reaches into a
+peer's `references/`.
 
 | File | Owns |
 |------|------|
-| `review-fix-loop/references/bb-workers.md` | Exact `bb` commands to spawn, wait on, inspect, and verify workers; interactions; GitHub access; budgets; pausing, notification, and auto-resume |
-| `review-fix-loop/references/worker-footer.md` | The `WORKER_RESULT` footer every worker ends with, attached to each spawn |
+| `bb-worker-protocol/references/bb-workers.md` | Exact `bb` commands to spawn, wait on, inspect, and verify workers; interactions; GitHub access; budgets; pausing, notification, and auto-resume |
+| `bb-worker-protocol/references/worker-footer.md` | The `WORKER_RESULT` footer every worker ends with, attached to each spawn |
+| `bb-worker-protocol/references/validation.md` | Resolving the check command, the baseline, who runs it, and when to rerun a time-shaped suite |
+| `bb-worker-protocol/references/example-run.md` | One three-ticket run end to end, with the real values at every gate |
 | `review-fix-loop/references/ledger.md` | Loop ledger schema under `$BB_THREAD_STORAGE` |
 | `review-fix-loop/references/quarantine.md` | Flake patterns, quarantine records, and the reopen budget |
-| `orchestrate-implementation/references/ledger.md` | Run ledger schema, including per-phase provider and model choices, landing, and verification state |
-| `orchestrate-implementation/references/pr-stack.md` | CI baseline, the check sweep, ready state, squash-merge rebases, review comments, merge order |
+| `bb-worker-protocol/references/run-ledger.md` | Run ledger schema, including per-phase provider and model choices, landing, and verification state |
+| `bb-worker-protocol/references/pr-stack.md` | CI baseline, the check sweep, ready state, squash-merge rebases, review comments, merge order |
 | `orchestrate-implementation/references/worker-prompts.md` | The implementation, diagnosis, and pull request prompts |
 | `orchestrate-implementation/references/recovery.md` | Rebuilding a stack from an older single-branch run |
 | `verify-landing/references/red-main.md` | Red-target classification and the revert-first response |
@@ -272,17 +285,25 @@ mkdir -p ~/.bb/skills
 cp -R bb-orchestration-skills/skills/* ~/.bb/skills/
 ```
 
-Four skills read reference files from their siblings' directories, so
-install them together:
+Every skill except `run-status` and `show-me` reads reference files from
+`bb-worker-protocol`, so install that one alongside whichever you use:
 
-- `orchestrate-implementation` reads `../review-fix-loop/references/`.
-- `land-stack` reads both `../review-fix-loop/references/` and
-  `../orchestrate-implementation/references/`.
-- `verify-landing` reads both `../review-fix-loop/references/` and
-  `../orchestrate-implementation/references/`.
-- `codebase-docs-cleanup` reads `../review-fix-loop/references/`.
+| Skill | Needs |
+|-------|-------|
+| `orchestrate-implementation` | `bb-worker-protocol` |
+| `review-fix-loop` | `bb-worker-protocol` |
+| `land-stack` | `bb-worker-protocol` |
+| `verify-landing` | `bb-worker-protocol` |
+| `codebase-docs-cleanup` | `bb-worker-protocol` |
+| `run-status` | nothing |
+| `show-me` | nothing |
 
-`review-fix-loop`, `run-status`, and `show-me` have no such dependency.
+No skill reads another skill's `references/` any more; a test enforces it.
+Updating from a version before that change leaves stale copies of
+`bb-workers.md`, `worker-footer.md`, and `subagents.md` under
+`review-fix-loop/references/`, and of `ledger.md` and `pr-stack.md` under
+`orchestrate-implementation/references/`. Delete those directories before
+copying rather than merging over them.
 
 ## Usage
 
@@ -315,10 +336,11 @@ The individual entry points:
 ## Tests
 
 ```bash
-bash tests/run.sh
+bash tests/run.sh              # prose and CLI drift guards, free and offline
+bash tests/run.sh --scenarios  # also ask a model to behave under pressure
 ```
 
-Every script under `tests/` runs. Most check the skill contracts. Four go
+Every script under `tests/` runs. Most check the skill contracts. Five go
 further:
 
 - `bb-commands.sh` verifies that every `bb` command and flag in the worker
@@ -333,6 +355,18 @@ further:
   `gh` and `bb`, proving PRs merge oldest first, that an environment is
   archived only after its merge is confirmed, and that a failing check stops
   the run without touching the rest of the stack.
+- `scenarios.sh` tests behaviour rather than prose. Each file in
+  `tests/scenarios/` puts a fresh agent in a situation where following the
+  skill costs something — a repo owner offering to take the blame, a budget
+  that a second validation run will exhaust — and checks which way it went.
+  `--baseline` runs the same scenarios with no skill loaded and fails any that
+  a skill-less agent already gets right, so a rule only earns words in a skill
+  once something has been seen to go wrong without it. It spends tokens, so it
+  is skipped unless `RUN_SCENARIOS=1`.
+
+  Current results over the five scenarios: at baseline, with no skill loaded,
+  1 of 15 samples chose correctly (3 per scenario). With the skill loaded,
+  25 of 25 did (5 per scenario).
 
 ## License
 

@@ -23,7 +23,7 @@ the run reads them as ticket failures and no PR ever becomes ready.
 
 The `gh` commands below state what must be true at each step. Run them through
 the `gh-axi` skill when it is installed, per the GitHub section of
-`../../review-fix-loop/references/bb-workers.md`.
+`bb-workers.md`.
 
 ## The check sweep
 

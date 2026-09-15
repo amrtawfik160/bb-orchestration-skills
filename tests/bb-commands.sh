@@ -5,7 +5,7 @@ set -euo pipefail
 # Drift guard: every bb flag used in the worker protocol must exist in the
 # installed bb CLI's --help output. Skips when bb is not on PATH.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-protocol="$repo_root/skills/review-fix-loop/references/bb-workers.md"
+protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
 failed=0
 
 if ! command -v bb >/dev/null 2>&1; then

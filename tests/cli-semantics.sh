@@ -6,7 +6,7 @@ set -euo pipefail
 # on flags existing. Each check below pins one fact the protocol depends on, so
 # a bb release that changes the fact fails here instead of in a live run.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-protocol="$repo_root/skills/review-fix-loop/references/bb-workers.md"
+protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
 failed=0
 
 require_pattern() {

@@ -26,8 +26,8 @@ the next transition.
   "progress": { "continuations": 3, "since_last_transition": 0 },
   "relay": { "predecessor": null, "successor": null },
   "notify": {
-    "command": "bb notify send",
-    "verified": true,
+    "command": null,
+    "verified": false,
     "auto_resume_message": "qmsg_abc123",
     "auto_resume_automation": null,
     "watchdog_automation": "auto_ghi789",
@@ -123,7 +123,10 @@ Field notes:
 - `relay.successor` is the orchestrator thread that took the run over on a
   context handoff; `relay.predecessor` is the thread it came from.
 - `notify.verified` records that `notify.command` was probed and ran. An
-  unverified or missing command is `null`, never a plausible name.
+  unverified or missing command is `null`, never a plausible name — which is
+  why the example above ships `null`. A probed command that ran replaces it
+  with its exact string and `verified: true`. An *installed but disabled*
+  plugin prints no `command:` line and is therefore not a match.
 - `notify.continuation_message` is the queued row that continues the turn; it is
   deleted when the run reaches a terminal state.
 - `criteria[]` records each acceptance criterion with the evidence that
@@ -156,7 +159,7 @@ Default `execution.mode` is `bb-threads`: one visible BB thread per phase and
 one chained worktree per ticket. Each worker records `thread`,
 phase/status, pinned base/head, verified result, and a durable output path.
 The single-thread alternative in
-`../review-fix-loop/references/subagents.md` applies only on explicit user
+`subagents.md` applies only on explicit user
 request; its native workers record `backend: subagents`, `agent_id`,
 `agent_session`, and `lease` instead of BB thread fields. A ledger without an
 execution mode predates the record and reconciles as `bb-threads` unless the

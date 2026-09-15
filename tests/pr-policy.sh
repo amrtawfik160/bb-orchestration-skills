@@ -7,7 +7,7 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
 orchestrator_prompts="$repo_root/skills/orchestrate-implementation/references/worker-prompts.md"
-stack="$repo_root/skills/orchestrate-implementation/references/pr-stack.md"
+stack="$repo_root/skills/bb-worker-protocol/references/pr-stack.md"
 land="$repo_root/skills/land-stack/SKILL.md"
 loop="$repo_root/skills/review-fix-loop/SKILL.md"
 readme="$repo_root/README.md"
@@ -49,9 +49,9 @@ require_phrase "$orchestrator" 'One ticket owns one'
 require_phrase "$orchestrator" 'visible BB thread'
 require_phrase "$orchestrator" 'one managed worktree'
 require_phrase "$orchestrator" 'chains from the previous'
-require_phrase "$repo_root/skills/review-fix-loop/references/bb-workers.md" 'never the default'
-require_phrase "$repo_root/skills/review-fix-loop/references/subagents.md" 'explicit alternative'
-require_phrase "$repo_root/skills/review-fix-loop/references/subagents.md" 'one-ticket diffs'
+require_phrase "$repo_root/skills/bb-worker-protocol/references/bb-workers.md" 'never the default'
+require_phrase "$repo_root/skills/bb-worker-protocol/references/subagents.md" 'explicit alternative'
+require_phrase "$repo_root/skills/bb-worker-protocol/references/subagents.md" 'one-ticket diffs'
 reject_pattern "$orchestrator" 'subagents\.md'
 reject_pattern "$orchestrator" 'shared checkout'
 reject_pattern "$orchestrator" 'native sub-agents'

@@ -22,9 +22,10 @@ the IDE; all phases share one ticket environment and worktree.
 
 ## References
 
-Follow `references/bb-workers.md` for spawning, waiting, interactions,
-verification, budgets, pausing, continuation, and notification. Attach
-`references/worker-footer.md`; keep `references/ledger.md` after each transition.
+`../bb-worker-protocol/SKILL.md` indexes the shared runtime;
+`../bb-worker-protocol/references/bb-workers.md` is the one you are in most
+often. Attach `../bb-worker-protocol/references/worker-footer.md` to every
+spawn. Keep `references/ledger.md` after each transition.
 
 ## Prepare
 
@@ -32,9 +33,8 @@ verification, budgets, pausing, continuation, and notification. Attach
    `initial-head`, fixed point, Spec, standards, and tracker configuration.
    Require a clean committed diff and pin
    `review-base = merge-base(fixed-point, initial-head)`.
-2. Resolve `validation`: the ticket's own validation line, else the project's
-   documented check, else the package's `test`, `lint`, and `typecheck`
-   scripts. Record the command and run it yourself after every fix, logging
+2. Resolve `validation` per `../bb-worker-protocol/references/validation.md`.
+   Record the command and run it yourself after every fix, logging
    each attempt per `references/quarantine.md`.
 3. Snapshot the Spec or ticket once for every worker. Write the ledger after
    each transition; on resume, reconcile it with BB and Git before taking one.

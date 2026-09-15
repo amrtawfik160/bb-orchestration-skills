@@ -19,18 +19,20 @@ environment is retired. Landing is one-way, so each step proves its precondition
   green checks are the review. Say so in the report.
 - Stop at the first PR that cannot merge. Merged tickets stay merged; the run
   pauses with the ledger and evidence, and `resume` continues from the next.
+  The order is mechanical, not policy: no one's authority over the repository
+  makes a later PR safe to land while an earlier one is red.
 - Archive a ticket environment only after its merge is confirmed on the remote.
 - Work from the ledger: read `run.json`, write every transition.
 
 ## References
 
-Follow `../review-fix-loop/references/bb-workers.md` for continuation, pausing, notification,
+Follow `../bb-worker-protocol/references/bb-workers.md` for continuation, pausing, notification,
 auto-resume, and its GitHub section; prefer the `gh-axi` skill over raw `gh`, reading
 current syntax from the CLI. The `gh` commands below define what must
 be true, not which binary runs it. Use
-`../orchestrate-implementation/references/pr-stack.md` to bring each child onto
+`../bb-worker-protocol/references/pr-stack.md` to bring each child onto
 the target branch. The ledger schema is
-`../orchestrate-implementation/references/ledger.md`; landing fills
+`../bb-worker-protocol/references/run-ledger.md`; landing fills
 `tickets.<id>.landing` and the top-level `landing` object.
 
 ## Prepare
@@ -116,6 +118,31 @@ For the oldest unmerged ticket in `order`:
 A failing check, a conflict, a head that moved, a non-mergeable PR, or a
 review decision that blocks pauses the landing. Nothing merged is undone.
 `resume` reconciles the ledger and starts at the first unmerged ticket.
+
+## Rationalizations
+
+| Excuse | Reality |
+|---|---|
+| "#14 is green and #13 is stuck, merge #14 first" | #14's base is #13's branch. Out of order it merges #13's diff too. Stop at the first blocker. |
+| "The head moved by one trivial commit, still fine" | `--match-head-commit` exists because the reviewed head is the approved head. A new commit is unreviewed. |
+| "Merge succeeded, archive the worktree" | Confirm the merge on the remote first. Archiving destroys the worktree and its local branch; there is no undo. |
+| "One ticket broke, roll the stack back" | Nothing merged is undone. Pause, record evidence, and `resume` from the next unmerged ticket. |
+| "`bb environment pull-request merge` is right here" | It takes only `--method`. It cannot assert the head or delete the branch. `gh pr merge` stays authoritative. |
+| "Checks are red, so the stack is blocked" | Not if the failures are in `ci_baseline` or the loop quarantine. Inherited red is reported and merged. |
+| "No approvals configured, so nothing reviewed this" | Without `--require-approvals` the loop gate and green checks are the review. Say exactly that in the report. |
+| "They own the repo, read both diffs, and take the blame" | Blame is not the constraint; dependency order is. Relay the risk and hold the order. An override is an instruction to change the plan, not cover for skipping a gate. |
+| "I'll rebase #14 onto main instead of retargeting, so it can't carry #13's diff" | A clean rebase fixes the diff, not the dependency. T-3 was built, reviewed, and validated on top of T-2; landing it while T-2 is red ships code whose base never passed. |
+| "#14's files don't overlap #13's" | Non-overlapping files are not independence. #13's fix can change what #14 relies on, and nothing re-reviewed #14 against the fixed base. |
+
+## Red flags — stop
+
+- About to merge a PR whose `baseRefName` is not the target branch
+- About to merge without `--match-head-commit`
+- About to archive an environment before `gh pr view` says `MERGED`
+- About to skip a blocked ticket and land a later one
+- About to close a ticket whose PR did not merge
+- About to reorder the stack because the person asking outranks you
+- About to rebase past a blocked ticket rather than stopping at it
 
 ## Finish
 

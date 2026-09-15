@@ -27,7 +27,7 @@ and `bb thread show` before the next transition.
   "excluded_scope": ["vendor/", "dist/"],
   "budget": { "workers": 12, "minutes": 240 },
   "notify": {
-    "command": "bb notify send",
+    "command": null,
     "auto_resume_message": null,
     "auto_resume_automation": null,
     "watchdog_automation": null,
@@ -116,5 +116,5 @@ Default `execution.mode` is `bb-threads`: one visible BB thread per inventory
 partition, batch, and navigation check, all sharing the cleanup worktree.
 Worker fields hold BB thread IDs. The
 single-thread alternative in
-`../../review-fix-loop/references/subagents.md` applies only on explicit user
+`../../bb-worker-protocol/references/subagents.md` applies only on explicit user
 request.

@@ -106,8 +106,13 @@ completes, fails, or is interrupted (see `bb guide`): while the worker runs
 there is nothing to fetch.
 
 ```bash
-bb thread wait "$WORKER" --timeout 1200 --json   # exit 0 idle, exit 2 timeout
+bb thread wait "$WORKER" --timeout 1200 --json   # 0 idle, 2 timeout, 1 error
 ```
+
+Exit 1 is not a slow worker: the ID is wrong, the thread was deleted, or the
+server is unreachable. Never treat it as a timeout and wait again. Confirm the
+ID against the ledger, then pause with `class: transient` when the server is
+down and `class: decision` when the thread is gone.
 
 A timeout means the worker is not idle yet; it is not a failed phase. On a
 timeout, check only the two things that can block silent progress:
@@ -505,8 +510,21 @@ EOF
 bb automation create --project "$BB_PROJECT_ID" --name "watchdog <run>" \
   --cron '*/10 * * * *' --timezone Etc/UTC \
   --script-file "$BB_THREAD_STORAGE/watchdog.sh" --interpreter bash \
+  --timeout 300000 \
   --env-json "{\"STORAGE\":\"$(dirname "$BB_THREAD_STORAGE")\"}" --json
 ```
+
+Pass `--timeout` explicitly. The default is 120000 ms and this script pages
+`bb thread log --all` once per candidate ledger, so a project with several runs
+overruns it and BB records a failed tick — a watchdog that stopped guarding
+without saying so. Keep it under the cron interval so a slow tick finishes
+before the next is due: 300000 ms against `*/10`. The plugin's 900000 ms
+ceiling is longer than that interval, so it is the wrong value here.
+
+Script and agent automations take disjoint flag sets; mixing them is rejected
+with "Script automations do not accept agent execution flags." `bb automation`
+comes from the `automations` plugin, not the core CLI — see this skill's
+Dependencies table for what a run does when it is missing.
 
 The script prints nothing when every run is healthy, so BB records a silent
 tick. A relay needs no change: the script follows `relay.successor` from the

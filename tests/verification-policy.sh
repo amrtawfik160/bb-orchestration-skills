@@ -7,10 +7,10 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 orchestrator="$repo_root/skills/orchestrate-implementation/SKILL.md"
 loop="$repo_root/skills/review-fix-loop/SKILL.md"
-protocol="$repo_root/skills/review-fix-loop/references/bb-workers.md"
-footer="$repo_root/skills/review-fix-loop/references/worker-footer.md"
+protocol="$repo_root/skills/bb-worker-protocol/references/bb-workers.md"
+footer="$repo_root/skills/bb-worker-protocol/references/worker-footer.md"
 loop_ledger="$repo_root/skills/review-fix-loop/references/ledger.md"
-run_ledger="$repo_root/skills/orchestrate-implementation/references/ledger.md"
+run_ledger="$repo_root/skills/bb-worker-protocol/references/run-ledger.md"
 failed=0
 
 require_pattern() {
@@ -19,6 +19,17 @@ require_pattern() {
 
   if ! grep -Eq -- "$pattern" "$file"; then
     printf 'FAIL %s: missing contract /%s/\n' "${file#"$repo_root"/}" "$pattern"
+    failed=1
+  fi
+}
+
+reject_pattern() {
+  local file=$1
+  local pattern=$2
+  local why=$3
+
+  if grep -Eq -- "$pattern" "$file"; then
+    printf 'FAIL %s: /%s/ %s\n' "${file#"$repo_root"/}" "$pattern" "$why"
     failed=1
   fi
 }
@@ -33,14 +44,24 @@ require_pattern "$orchestrator" 'Verify every'
 require_pattern "$orchestrator" 'worker claim in the worktree'
 require_pattern "$loop" 'Verify every claim in the worktree'
 
-# Validation is resolved once and run by the orchestrator.
+# Validation is resolved once, in one shared file, and run by the orchestrator.
+validation="$repo_root/skills/bb-worker-protocol/references/validation.md"
+require_pattern "$validation" 'ticket.s own validation line'
+require_pattern "$validation" '`test`, `lint`, and `typecheck`'
+require_pattern "$validation" 'never when the worker reported it|Run it yourself|run .validation. after every mutating worker'
+require_pattern "$validation" 'Never record a validation you did not watch exit 0'
 for skill in "$orchestrator" "$loop"; do
   require_pattern "$skill" 'Resolve `validation`'
-  require_pattern "$skill" 'ticket.s own validation line'
-  require_pattern "$skill" '`test`, `lint`, and `typecheck`'
+  require_pattern "$skill" 'bb-worker-protocol/references/validation.md'
 done
 require_pattern "$orchestrator" 'run it yourself after every mutating worker'
 require_pattern "$loop" 'run it yourself after every fix'
+
+# The ladder is defined once. A skill that restates it is a copy that will drift.
+for skill in "$orchestrator" "$loop" "$repo_root/skills/codebase-docs-cleanup/SKILL.md"; do
+  reject_pattern "$skill" '`test`, `lint`, and `typecheck`' \
+    'restates the resolution ladder that validation.md owns'
+done
 
 # Worker footer contract.
 require_pattern "$footer" '^WORKER_RESULT:$'
@@ -57,7 +78,7 @@ require_pattern "$protocol" 'A missing or malformed footer'
 require_pattern "$loop_ledger" 'review-fix-loop/<review-base-7-char-sha>.json'
 require_pattern "$run_ledger" 'orchestrate-implementation/run.json'
 require_pattern "$loop" 'references/ledger.md'
-require_pattern "$orchestrator" 'references/ledger.md'
+require_pattern "$orchestrator" 'bb-worker-protocol/SKILL.md'
 require_pattern "$orchestrator" '\| resume'
 require_pattern "$orchestrator" '`resume`, or'
 

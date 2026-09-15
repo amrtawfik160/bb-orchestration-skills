@@ -1,5 +1,84 @@
 # Changelog
 
+## 2026-09-15 — Shared runtime, behaviour tests, gates you can tick off
+
+The bundle had five skills reaching sideways into each other's `references/`,
+a test suite that only grepped prose, and no counter to the one pressure that
+actually moves an agent: a person with authority offering to take the blame.
+
+### One shared runtime instead of five reaching sideways
+
+`bb-worker-protocol` is a new skill holding everything more than one skill
+needs: the worker protocol, the `WORKER_RESULT` footer, the run ledger, the
+stacked-PR procedure, the in-thread alternative, and two new files — a single
+definition of how `validation` is resolved and run, and one three-ticket run
+written out end to end with the real values at every gate.
+
+`bb-workers.md` used to live inside `review-fix-loop` while four other skills
+loaded it through `../review-fix-loop/...`; the run ledger and PR stack lived
+inside `orchestrate-implementation` the same way. Installing `land-stack` on
+its own left dangling links. Dependencies now point down, and a test fails any
+skill that reaches into a peer's `references/`.
+
+### Gates are checklists, not paragraphs
+
+`orchestrate-implementation`'s gates were three paragraphs carrying about a
+dozen separate requirements. They are now three numbered lists — accept a
+worker, record the review-fix gate, open the PR — where a line you did not
+check is a line that failed.
+
+The compactness budget moved from lines to words, because a line budget
+charges a numbered checklist more than the paragraph it replaced, which is
+backwards.
+
+### Tests that check behaviour, not wording
+
+`tests/scenarios/` puts a fresh agent in situations where following the skill
+costs something and records which way it went. `tests/scenarios.sh --baseline`
+runs the same scenarios with no skill loaded and fails any that a skill-less
+agent already gets right, so a rule only earns words once something has been
+seen to go wrong without it.
+
+That gate cut more than it kept. Three separate attempts to find a discipline
+gap in `review-fix-loop` and `verify-landing` — convergence on a plateau,
+reporting `PASS` when the Spec axis was skipped, verifying a merge commit
+rather than the PR head before it — all came back 3/3 compliant with no skill
+loaded. Neither skill gets a rationalization table: the rules stay in their
+contracts, where they say what the skill does, but nothing has been seen to
+fail, so nothing earns extra words defending it.
+
+Where the scenarios did find a hole, it was authority pressure. Told "I've read
+both diffs, I'll take the blame", the loaded skills still gave way on parallel
+workers, on closing a ticket before its PR merged, and on landing a stack out
+of order — including a neat loophole where the agent rebased past a blocked
+ticket instead of stopping at it. `orchestrate-implementation`, `land-stack`,
+and `codebase-docs-cleanup` now carry a rationalization table and a red-flag
+list built from what those violations actually said, with the authority case
+answered directly: the gates are mechanical, and an override is an instruction
+to change the plan, not cover for skipping one.
+
+Across the five scenarios: at baseline, no skill loaded, 1 of 15 samples chose
+correctly (3 per scenario); with the skill loaded, 25 of 25 did (5 per
+scenario).
+
+### bb CLI check
+
+Every `bb` command, flag, and JSON field path the protocol depends on was
+verified against the installed CLI (0.43.1). Three gaps fixed:
+
+- `bb thread wait` exit 1 was undocumented, so a bad thread ID read as a
+  timeout and waited again forever. It now pauses.
+- The watchdog automation ran without `--timeout`, so on a project with
+  several runs it silently exceeded the two-minute default and was recorded as
+  a failed tick — a watchdog that had stopped guarding without saying so.
+- Both ledger examples hardcoded `bb notify send`, a command that does not
+  exist unless that plugin is installed and enabled, contradicting the
+  protocol's own rule against recording a plausible-looking name. The examples
+  now ship `null`.
+
+`bb-worker-protocol` also documents the plugins it depends on and what a run
+should do when one is missing.
+
 ## 2026-09-14 — User stops stick, relay probe goes free
 
 A live run wrote the findings. The user stopped a check worker, then the

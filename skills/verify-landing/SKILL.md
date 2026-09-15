@@ -25,12 +25,12 @@ visible BB thread sharing one verify worktree at the target head.
 
 ## References
 
-Follow `../review-fix-loop/references/bb-workers.md` for spawning, waiting,
+Follow `../bb-worker-protocol/references/bb-workers.md` for spawning, waiting,
 interactions, verification, budgets, pausing, continuation, notification,
 auto-resume, and its GitHub section; prefer the `gh-axi` skill over raw `gh`,
 reading current syntax from the CLI. The `gh` commands below define what must
 be true, not which binary runs it. The ledger schema is
-`../orchestrate-implementation/references/ledger.md`; verification fills
+`../bb-worker-protocol/references/run-ledger.md`; verification fills
 `tickets.<id>.verification` and the top-level `verification` object.
 
 ## Prepare
