@@ -18,7 +18,7 @@ worker rule written five times is five rules the moment one is edited.
 | File | Owns |
 |---|---|
 | `references/bb-workers.md` | One worker: spawn, wait, interactions, result parsing, verification, budgets |
-| `references/run-lifecycle.md` | Between turns: continuation, relay, pause, notify, auto-resume, watchdog |
+| `references/run-lifecycle.md` | Between turns: continuation, relay, pause, notify, auto-resume, `[watchdog]` tell |
 | `references/github.md` | `gh` / `gh-axi` access. Read by skills that never spawn a worker |
 | `references/worker-footer.md` | The `WORKER_RESULT` footer every worker ends with. Attach it to every spawn |
 | `references/validation.md` | Resolving and running the `validation` command |
@@ -35,7 +35,6 @@ gate that needs them:
 | Dependency | Probe | Absent |
 |---|---|---|
 | `bb` CLI | `bb --version` | Nothing in this bundle runs. Stop |
-| `automations` plugin (`bb automation`) | `bb automation list --project "$BB_PROJECT_ID" --json` | No watchdog and no repeating auto-resume. Record `notify.watchdog_automation: null`, tell the user the run has no safety net, and keep the single-shot `--send-at` resume |
 | a notification command | `bb plugin list \| grep -E '^\s+command: bb (notify\|ntfy\|telegram-agent\|push-notifications)'` | Record `notify.command: null`. The thread report is the notification. Never record a plugin name that is installed but disabled |
 | `gh` / `gh-axi` | `gh auth status` | No PR work. Pause before the first push, not after |
 
@@ -50,3 +49,4 @@ Probe the match once and record `notify.verified` before trusting it.
 - "I'll archive the worker to clean up" — archiving destroys the managed worktree
 - "The reviewer found nothing, so I'll rerun the review to be sure" — reviews are nondeterministic
 - "I'm near the context limit, I'll fork myself" — a fork inherits the exhausted context
+- "I'll cron a sidecar to watch the workers" — see Wait and Watchdog

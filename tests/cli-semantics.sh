@@ -67,9 +67,12 @@ require_pattern "$lifecycle" 'bb thread update "\$WORKER" --visibility visible'
 require_pattern "$lifecycle" 'bb thread open "\$WORKER"'
 require_pattern "$protocol" 'exclude\s+hidden threads'
 
-# The single-shot resume needs no cleanup; the automation remains the fallback.
+# Transient resume is a `--send-at` tell on this thread; a still-transient
+# wake queues another.
 require_pattern "$lifecycle" '--send-at 15m'
 require_pattern "$lifecycle" 'bb thread queue delete'
+require_pattern "$lifecycle" 'queue the same `--send-at 15m`'
+require_pattern "$protocol" 'bb thread list --parent-thread'
 
 if ! command -v bb >/dev/null 2>&1; then
   echo 'SKIP bb is not on PATH; verified protocol text only'
@@ -88,13 +91,17 @@ if ! grep -q -- '--work-status' <<<"$(bb thread show --help 2>&1)"; then
   printf 'FAIL bb thread show: --work-status is gone; worker verification needs a new source\n'
   failed=1
 fi
+if ! grep -q -- '--parent-thread' <<<"$(bb thread list --help 2>&1)"; then
+  printf 'FAIL bb thread list: --parent-thread is gone; nested-child wait needs a new source\n'
+  failed=1
+fi
 if ! grep -q -- '--exit' <<<"$(bb terminal wait --help 2>&1)"; then
   printf 'FAIL bb terminal wait: --exit is gone; remote validation needs a new wait target\n'
   failed=1
 fi
 
 for subcommand in 'thread queue list' 'thread queue delete' 'thread update' \
-  'thread open' 'thread interactions deny' 'machine list' \
+  'thread open' 'thread list' 'thread interactions deny' 'machine list' \
   'project attachment upload' 'environment pull-request show' \
   'environment pull-request merge' 'terminal create' 'terminal wait' \
   'terminal output' 'terminal show'; do

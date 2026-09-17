@@ -6,7 +6,7 @@ the IDE sidebar; the phase vocabulary is the `phase:` enum in
 `worker-footer.md`. This
 file is the single source for spawning, waiting on, inspecting, and verifying
 one worker. Everything between turns — continuation, relay, pause, notify,
-auto-resume, the watchdog — lives in `run-lifecycle.md`. The in-thread alternative in
+auto-resume, the `[watchdog]` tell — lives in `run-lifecycle.md`. The in-thread alternative in
 `subagents.md` applies only when the user explicitly requests single-thread
 execution; it is never the default.
 
@@ -108,7 +108,8 @@ Listen; never poll. `bb thread wait` blocks server-side until the worker
 reaches its target, so one call covers a whole phase no matter how long it
 runs. The parent also receives lifecycle notifications when a child
 completes, fails, or is interrupted (see `bb guide`): while the worker runs
-there is nothing to fetch.
+there is nothing to fetch. Wakes and monitors are `bb thread wait`,
+`bb thread show`, `bb thread list`, and `bb thread tell --send-at`.
 
 ```bash
 bb thread wait "$WORKER" --timeout 1200 --json   # 0 idle, 2 timeout, 1 error
@@ -120,11 +121,12 @@ ID against the ledger, then pause with `class: transient` when the server is
 down and `class: decision` when the thread is gone.
 
 A timeout means the worker is not idle yet; it is not a failed phase. On a
-timeout, check only the two things that can block silent progress:
+timeout, check only the things that can block silent progress:
 
 ```bash
-bb thread show "$WORKER" --json                  # .thread.status only
+bb thread show "$WORKER" --json                  # .thread.status, .thread.activeBackgroundAgentCount
 bb thread interactions list "$WORKER" --json     # pending questions or approvals
+bb thread list --parent-thread "$WORKER" --json  # nested BB children
 ```
 
 - `status: error` gets one `bb thread retry "$WORKER"`; a second error pauses.
@@ -133,6 +135,11 @@ bb thread interactions list "$WORKER" --json     # pending questions or approval
   limit, and `bb thread retry` then fails with `retry_already_queued`. That
   queued row is the worker's one retry; count it and wait again.
 - A pending interaction is handled before the next wait.
+- Nested BB children that are not idle get `bb thread wait` each. A review
+  worker's Standards and Spec children show up here.
+- `.thread.activeBackgroundAgentCount > 0` after idle means in-thread agents
+  are still running. Wait any BB children first; native handles use the
+  provider wait tools in `subagents.md`. Do not parse the result yet.
 - Otherwise wait again. Never read the worker log while waiting: one page
   stuffs hundreds of events into this thread and decides nothing. Never ask
   a working worker for status: the tell interrupts its turn and spends both
@@ -140,6 +147,10 @@ bb thread interactions list "$WORKER" --json     # pending questions or approval
 - Each timeout consumes 20 minutes of the ticket minutes budget; exhaustion
   pauses with `reason: budget`.
 - A user stop on the orchestrator pauses at once.
+
+Read-only fan-out is the exception to one-at-a-time: spawn the batch, then
+wait each recorded ID. `bb thread list --parent-thread "$BB_THREAD_ID"` and
+`bb status --json` `.childThreads` are the live set.
 
 Never spawn the next worker before the current one is idle and inspected.
 

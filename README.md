@@ -141,7 +141,7 @@ peer's `references/`.
 
 | File | Owns |
 |------|------|
-| `bb-worker-protocol/references/bb-workers.md` | Exact `bb` commands to spawn, wait on, inspect, and verify workers; interactions; GitHub access; budgets; pausing, notification, and auto-resume |
+| `bb-worker-protocol/references/bb-workers.md` | Exact `bb` commands to spawn, wait on, inspect, and verify workers; nested children; GitHub access; budgets; pausing, notification, and auto-resume |
 | `bb-worker-protocol/references/worker-footer.md` | The `WORKER_RESULT` footer every worker ends with, attached to each spawn |
 | `bb-worker-protocol/references/validation.md` | Resolving the check command, the baseline, who runs it, and when to rerun a time-shaped suite |
 | `bb-worker-protocol/references/example-run.md` | One three-ticket run end to end, with the real values at every gate |
@@ -163,9 +163,11 @@ peer's `references/`.
 - A fresh visible BB thread for every phase, stopped after its result is
   recorded so the thread and log stay inspectable from the sidebar.
 - An orchestrator that listens instead of polls: one blocking wait covers a
-  phase, with no log reads and no status nudges while workers run.
+  phase, with no log reads and no status nudges while workers run. Nested BB
+  children and in-thread agents are waited the same way, via `bb thread wait`,
+  `bb thread list --parent-thread`, and `bb status` `.childThreads`.
 - User stops that stick: a stopped worker pauses with its partial output,
-  never respawns, and the watchdog leaves a user-stopped thread alone.
+  never respawns, and the `[watchdog]` tell leaves a user-stopped thread alone.
 - One branch and managed worktree per ticket; only that ticket's workers share
   it.
 - Worker claims are verified in the worktree: clean tree, expected `HEAD`, and
@@ -198,8 +200,9 @@ peer's `references/`.
   with its `[continuation]` row queued as it ends, naming the skill and ledger,
   and hands off to a fresh orchestrator before context runs out. It waits
   inside the turn while a worker runs and wakes every ten minutes while only
-  CI is pending, so it never spins, and a watchdog automation re-arms it if BB
-  loses its queued continuation or a turn ends with nothing queued. A brief
+  CI is pending, so it never spins, and a `[watchdog]` tell on the same thread
+  re-arms it if BB loses its queued continuation or a turn ends with nothing
+  queued. A brief
   `[continuation]` row in the IDE Queue panel between turns is normal and safe
   to ignore.
 - A CI baseline taken before the first ticket, so a repository whose default

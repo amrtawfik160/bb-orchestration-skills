@@ -79,15 +79,19 @@ require_pattern "$lifecycle" 'unchanged sweep is not a transition'
 require_pattern "$lifecycle" 'nothing pending'
 
 # A queued continuation can be lost without dispatching, so a running ledger
-# needs an external watchdog, not only a paused one.
+# needs a delayed `[watchdog]` tell on the same thread, not only a paused one.
 require_pattern "$lifecycle" '## Watchdog'
 require_pattern "$lifecycle" 'idle with an empty queue'
-require_pattern "$lifecycle" 'bb automation create --project "\$BB_PROJECT_ID" --name "watchdog'
+require_pattern "$lifecycle" '\[watchdog\].*read run.json'
+require_pattern "$lifecycle" '--mode queue --send-at 10m'
 require_pattern "$lifecycle" 'codebase-docs-cleanup/run.json'
-require_pattern "$lifecycle" 'review-fix-loop/\*.json'
-require_pattern "$ledger" 'watchdog_automation'
+require_pattern "$lifecycle" 'review-fix-loop/<base7>.json'
+require_pattern "$ledger" 'watchdog_message'
 require_pattern "$orchestrator" 'watchdog'
 require_pattern "$lifecycle" 'manual-stop'
+reject_pattern "$lifecycle" 'bb automation'
+reject_pattern "$ledger" '"watchdog_automation"'
+reject_pattern "$ledger" '"auto_resume_automation"'
 
 # One thread cannot hold a long run.
 require_pattern "$lifecycle" '## Relay to a successor'
@@ -132,6 +136,13 @@ require_pattern "$lifecycle" 'written without `class` is a `decision` pause'
 require_pattern "$lifecycle" 'notify.verified'
 require_pattern "$lifecycle" 'Probe the match once'
 require_pattern "$ledger" '"verified"'
+
+# Runs wake with bb thread tell / wait. No skill in this bundle creates a
+# scheduled sidecar.
+if grep -RInE --include='*.md' -- 'bb automation' "$repo_root/skills" "$repo_root/README.md"; then
+  printf 'FAIL skills still mention bb automation\n'
+  failed=1
+fi
 
 if (( failed )); then
   exit 1

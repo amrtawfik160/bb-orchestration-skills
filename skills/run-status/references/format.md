@@ -33,5 +33,6 @@ any missing gate verdict, one line each. All clear reads `BLOCKERS: none`.
 
 ## Children
 
-One row per live child thread: ID, status, visibility, and title. End with
+One row per live child thread: ID, status, visibility, title, and
+`activeBackgroundAgentCount` when it is not zero. End with
 the ledger path for the full record.

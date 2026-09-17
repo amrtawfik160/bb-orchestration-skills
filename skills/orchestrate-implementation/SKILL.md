@@ -66,8 +66,8 @@ invokes `/land-stack` once the run is `finished`.
    `../bb-worker-protocol/references/pr-stack.md`. A PR failure named there is
    inherited, not caused, and never blocks this run; without it a red
    repository reads as a red ticket and strands the stack.
-4. Snapshot the approved artifacts once, write the run ledger, and create the
-   watchdog automation from `bb-workers.md`. `resume`, or an existing ledger at
+4.    Snapshot the approved artifacts once, write the run ledger, and arm the
+   `[watchdog]` tell from `run-lifecycle.md`. `resume`, or an existing ledger at
    start, reconciles it with BB, Git, GitHub, and the tracker first.
 5. Verify `bb-cli`, `implement`, `diagnosing-bugs`, `tdd`, `code-review`,
    `review-fix-loop`, `show-me`, `gh-axi`, authenticated push and PR access, and

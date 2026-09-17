@@ -69,7 +69,7 @@ next batch.
    scripts, configuration, and CI. Run it once at `cleanup-base` for the
    baseline, including its known failures and any unavailable dependency.
    A failure already in the baseline is never evidence against a later batch.
-6. Write the ledger and create the watchdog automation from `bb-workers.md`.
+6. Write the ledger and arm the `[watchdog]` tell from `run-lifecycle.md`.
    Do not reset, force-clean, push, or open a pull request unless separately
    requested.
 

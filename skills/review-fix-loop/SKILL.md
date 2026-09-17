@@ -37,6 +37,7 @@ spawn. Keep `references/ledger.md` after each transition.
    each attempt per `references/quarantine.md`.
 3. Snapshot the Spec or ticket once for every worker. Write the ledger after
    each transition; on resume, reconcile it with BB and Git before taking one.
+   Arm the `[watchdog]` tell from `run-lifecycle.md`.
 4. On resume reuse the ledger environment; otherwise create one managed
    worktree at `initial-head`, leaving unrelated source-checkout changes
    untouched. Verify `bb-cli`, `tdd`, and `code-review` for the selected

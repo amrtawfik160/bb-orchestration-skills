@@ -29,8 +29,7 @@ and `bb thread show` before the next transition.
   "notify": {
     "command": null,
     "auto_resume_message": null,
-    "auto_resume_automation": null,
-    "watchdog_automation": null,
+    "watchdog_message": null,
     "continuation_message": null
   },
   "relay": { "predecessor": null, "successor": null },
@@ -101,7 +100,7 @@ Field notes:
 - `pause` is
   `{ "class", "reason", "batch", "worker", "evidence", "next_action", "auto_resume_count" }`,
   where `class` is `transient` or `decision`.
-- `notify.watchdog_automation` is the script automation that re-arms this
+- `notify.watchdog_message` is the delayed `[watchdog]` tell that re-arms this
   thread when it is idle with an empty queue while `state` is `running`.
 - `notify.continuation_message` is the queued `[continuation]` row that
   continues the run; it is deleted when the run reaches a terminal state.

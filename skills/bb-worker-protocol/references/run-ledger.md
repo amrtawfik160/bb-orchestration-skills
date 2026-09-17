@@ -29,8 +29,7 @@ the next transition.
     "command": null,
     "verified": false,
     "auto_resume_message": "qmsg_abc123",
-    "auto_resume_automation": null,
-    "watchdog_automation": "auto_ghi789",
+    "watchdog_message": "qmsg_w1",
     "continuation_message": "qmsg_def456"
   },
   "landing": {
@@ -141,12 +140,12 @@ Field notes:
   `tickets.<id>.verification.checks` reads like `pr.checks`, `smoke` is
   `pass`, `fail`, or `null`, and `response` records the red-main path taken
   with its revert PR or fix ticket.
-- `notify.auto_resume_message` is the scheduled resume queued on this thread;
-  `notify.auto_resume_automation` is set only when a run uses the repeating
-  automation instead. At most one of the two is non-null.
-- `notify.watchdog_automation` is the script automation that re-arms this
+- `notify.auto_resume_message` is the scheduled `--send-at` resume queued on
+  this thread. A wake that is still transient queues another.
+- `notify.watchdog_message` is the delayed `[watchdog]` tell that re-arms this
   thread when it is idle with an empty queue while `state` is `running`. It is
-  deleted when no run of the project is `running`.
+  deleted when the run leaves `running`. Older ledgers may still carry
+  `watchdog_automation` or `auto_resume_automation`; ignore those keys.
 - `pause` is
   `{ "class", "reason", "ticket", "worker", "evidence", "next_action", "auto_resume_count" }`,
   where `class` is `transient` or `decision`.

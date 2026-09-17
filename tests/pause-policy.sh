@@ -22,12 +22,23 @@ require_pattern() {
   fi
 }
 
+reject_pattern() {
+  local file=$1
+  local pattern=$2
+
+  if grep -Eq -- "$pattern" "$file"; then
+    printf 'FAIL %s: obsolete pause contract /%s/\n' \
+      "${file#"$repo_root"/}" "$pattern"
+    failed=1
+  fi
+}
+
 require_pattern "$lifecycle" 'Classify every pause'
 require_pattern "$lifecycle" '`transient`'
 require_pattern "$lifecycle" '`decision`'
 require_pattern "$lifecycle" 'rate limit'
 require_pattern "$lifecycle" 'A `decision` pause always reaches the user'
-require_pattern "$lifecycle" 'auto-resume automation'
+reject_pattern "$lifecycle" 'auto-resume automation'
 
 require_pattern "$lifecycle" '## Notify'
 require_pattern "$lifecycle" 'bb plugin list \| grep'
@@ -42,9 +53,8 @@ require_pattern "$lifecycle" 'bb thread open "\$WORKER"'
 
 require_pattern "$lifecycle" '## Auto-resume'
 require_pattern "$lifecycle" 'leaves nothing to clean up'
-require_pattern "$lifecycle" 'bb automation create --project'
-require_pattern "$lifecycle" 'bb automation delete'
-require_pattern "$lifecycle" 'delete that automation when the run leaves `paused`'
+require_pattern "$lifecycle" 'queue the same `--send-at 15m`'
+reject_pattern "$lifecycle" 'bb automation'
 require_pattern "$lifecycle" 'only if its ledger pause class is transient'
 require_pattern "$lifecycle" 'auto_resume_count'
 require_pattern "$lifecycle" 'After three that do not'
@@ -56,9 +66,9 @@ for ledger in "$run_ledger" "$loop_ledger"; do
   require_pattern "$ledger" '`transient` or `decision`'
 done
 require_pattern "$run_ledger" '"notify"'
-require_pattern "$run_ledger" 'auto_resume_automation'
 require_pattern "$run_ledger" 'auto_resume_message'
-require_pattern "$run_ledger" 'At most one of the two is non-null'
+require_pattern "$run_ledger" 'watchdog_message'
+reject_pattern "$run_ledger" '"auto_resume_automation"'
 
 if (( failed )); then
   exit 1
