@@ -146,10 +146,11 @@ record its reason and next wake time rather than enqueueing an immediate loop.
 
 Context pressure is a reason to checkpoint and compact/continue this thread,
 not to create a successor. Set `relay.successor` to null for this mode and do
-not run the legacy relay procedure. If a watchdog is used, it targets only the
-exact authoritative ledger and owner thread. It verifies project, state,
-archive status, worker activity, and existing queue before waking that owner.
-Never scan and resume every historical project ledger.
+not run the legacy relay procedure. Arm the `[watchdog]` tell on this owner
+thread only. It verifies project, state, archive status, worker activity, and
+the existing queue before taking a transition. Wait in-thread agents with the
+provider's wait/list tools; wait BB children with `bb thread wait` and
+`bb thread list --parent-thread`.
 
 ## Landing and cleanup
 

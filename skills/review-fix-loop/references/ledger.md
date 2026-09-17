@@ -65,6 +65,11 @@ next transition.
   "best_burden": 1,
   "recovery_used": false,
   "gate": { "verdict": null, "final_head": null, "open_confirmed_findings": null },
+  "notify": {
+    "auto_resume_message": null,
+    "watchdog_message": null,
+    "continuation_message": null
+  },
   "pause": null
 }
 ```
@@ -84,6 +89,9 @@ Field notes:
 - `pause` is
   `{ "class", "reason", "worker", "evidence", "next_action", "auto_resume_count" }`
   when paused, where `class` is `transient` or `decision`.
+- `notify.watchdog_message` is the delayed `[watchdog]` tell for a standalone
+  loop; nested loops inside `orchestrate-implementation` use the run ledger's
+  notify object instead.
 - `workers[].output` is the saved final message, relative to
   `$BB_THREAD_STORAGE`.
 

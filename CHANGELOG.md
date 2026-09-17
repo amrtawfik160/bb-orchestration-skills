@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-09-17 — Watch the workers; do not schedule a sidecar
+
+Runs were creating a project-wide scheduled job to re-arm idle orchestrators
+and to repeat a transient resume. That pulled in a plugin the protocol does
+not own, and it scanned every historical ledger instead of watching the
+threads this run actually spawned.
+
+### What a run does now
+
+- After spawn, the orchestrator stays on `bb thread wait`, then inspects
+  `bb thread show` (including `activeBackgroundAgentCount`),
+  `bb thread list --parent-thread`, and `bb status` `.childThreads`. Nested
+  Standards/Spec children and read-only fan-out are waited the same way.
+- A lost continuation is a delayed `[watchdog]` tell on this thread
+  (`--mode queue --send-at 10m`), recorded as `notify.watchdog_message`.
+- A transient pause that has not cleared queues another `--send-at 15m`
+  resume. There is no repeating sidecar.
+- Prepare arms the `[watchdog]` tell. The automations plugin is not a
+  dependency. Older ledger keys `watchdog_automation` and
+  `auto_resume_automation` are ignored.
+
 ## 2026-09-15 — Single sources, split protocol, lighter loads
 
 A pruning pass over the whole bundle, with the behaviour scenarios re-run after

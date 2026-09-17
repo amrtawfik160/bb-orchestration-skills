@@ -2,8 +2,8 @@
 
 How a run survives longer than one turn: queueing its own continuation,
 handing off before context runs out, pausing, telling the user, and the
-watchdog that re-arms a run nobody woke. `bb-workers.md` owns everything
-inside a single worker; this file owns everything between turns.
+`[watchdog]` tell that re-arms a run nobody woke. `bb-workers.md` owns
+everything inside a single worker; this file owns everything between turns.
 
 ## Continue the run
 
@@ -16,8 +16,8 @@ A turn may end only in a terminal state — `finished`, `landed`, `audited`, or
 Queue it as the turn ends, not as it starts: every queued row renders in the
 IDE Queue panel, so a row queued at turn start sits as a `Queue 1` badge for
 the whole turn. An interrupted or errored turn with nothing queued is covered
-by the watchdog below, which re-arms a running ledger found idle or errored
-with an empty queue.
+by the `[watchdog]` tell below, which re-arms this thread if it goes idle
+with an empty queue while the ledger is still `running`.
 
 `--mode queue` holds the message on `waitingOn.kind: "thread-busy"` and
 dispatches it when the current turn ends. Use the exact template for the
@@ -45,7 +45,7 @@ never stack. Match the `[continuation]` prefix and the legacy generic text:
 
 ```bash
 bb thread queue list "$BB_THREAD_ID" --json \
-  | jq -r '.[] | select(.content[].text | test("^\\[continuation\\]|^Continue this run from its ledger")) | .id' \
+  | jq -r '.[] | select(.content[].text | test("^\\[continuation\\]|^\\[watchdog\\]|^Continue this run from its ledger")) | .id' \
   | while read -r row; do bb thread queue delete "$BB_THREAD_ID" "$row"; done
 ```
 
@@ -56,7 +56,7 @@ silently after clearing stale continuation rows, never with a fresh queue.
 
 A brief `[continuation]` row between turns is normal: it auto-dispatches at
 turn end and is safe to ignore. Deleting it only delays the run until the
-watchdog re-arms it, within ten minutes. Say so in one line when the user
+`[watchdog]` tell fires, within ten minutes. Say so in one line when the user
 asks about the Queue row; never present it as needing their action.
 
 A turn ends when it has nothing left to do, never because it is waiting.
@@ -111,8 +111,8 @@ reconcile it with BB, Git, GitHub, and the tracker, then take the next
 transition per the skill. The ledger is the whole handoff; inherit no timeline.
 ```
 
-The successor saves the ledger first: the watchdog scans per-thread storage,
-so a successor with no ledger of its own is invisible to it.
+The successor saves the ledger first and arms its own continuation and
+`[watchdog]` tell. A successor with no ledger cannot continue.
 Never fork for this: a fork inherits the context that ran out.
 
 ## Pause
@@ -188,82 +188,35 @@ Record `queuedMessage.id` as `notify.auto_resume_message`;
 `bb thread queue delete "$BB_THREAD_ID" <id>` cancels it when the user resumes
 first.
 
-When a run needs a repeating resume that outlives a stopped thread, create one
-auto-resume automation per run instead, and
-delete that automation when the run leaves `paused`:
-
-```bash
-bb automation create --project "$BB_PROJECT_ID" --name "resume <run>" \
-  --cron '*/15 * * * *' --timezone "$TZ" \
-  --target-thread "$BB_THREAD_ID" --provider <id> --model <model> \
-  --prompt 'Resume this run only if its ledger pause class is transient. Otherwise do nothing and end the turn.'
-
-bb automation delete <automationId> --project "$BB_PROJECT_ID" --yes
-```
-
-Each auto-resume increments `pause.auto_resume_count`. After three that do not
-advance the run, reclassify the pause as `decision` and notify the user.
+If the wake still sees `pause.class: transient` and the run has not advanced,
+queue the same `--send-at 15m` tell again. Each wake increments
+`pause.auto_resume_count`. After three that do not advance the run,
+reclassify the pause as `decision` and notify the user.
 
 ## Watchdog
 
-A queued continuation can be lost. BB was observed deleting a `thread-busy`
-row without dispatching it, three times in one day, which left a running
-orchestrator idle with an empty queue and nothing to wake it. It also covers
-an interrupted or errored turn that ended with nothing queued, which is why
-continuations queue at turn end instead of turn start. Guard every run with
-one script automation that re-arms a run found idle with an empty queue while
-its ledger still says `running`, and record its ID as
-`notify.watchdog_automation`. It leaves alone a thread the user stopped in
-the last 30 minutes: a user stop is a decision, and only the user resumes
-past it.
+A queued `--mode queue` continuation can be lost. BB was observed deleting a
+`thread-busy` row without dispatching it, which left a running orchestrator
+idle with an empty queue and nothing to wake it. Arm one delayed tell on this
+same thread whenever an immediate continuation is queued, and record its id as
+`notify.watchdog_message`. It also covers an interrupted turn that ended with
+nothing queued.
 
 ```bash
-cat > "$BB_THREAD_STORAGE/watchdog.sh" <<'EOF'
-#!/usr/bin/env bash
-# Re-arm any running run of this project that is idle with an empty queue.
-for ledger in "$STORAGE"/thr_*/orchestrate-implementation/run.json "$STORAGE"/thr_*/codebase-docs-cleanup/run.json "$STORAGE"/thr_*/review-fix-loop/*.json; do
-  [[ -f "$ledger" ]] || continue
-  thread=$(basename "$(dirname "$(dirname "$ledger")")")
-  IFS=$'\t' read -r state successor < <(jq -r '[(.state // ""), (.relay.successor // "")] | @tsv' "$ledger")
-  [[ "$state" == running ]] || continue
-  [[ -z "$successor" || "$successor" == "$thread" ]] || continue
-  show=$(bb thread show "$thread" --json) || continue
-  [[ "$(jq -r .thread.projectId <<<"$show")" == "$BB_PROJECT_ID" ]] || continue
-  status=$(jq -r .thread.status <<<"$show")
-  [[ "$(bb thread queue list "$thread" --json | jq length)" == 0 ]] || continue
-  stopped=$(bb thread log "$thread" --format json --all | jq --argjson since "$(( $(date +%s%3N) - 1800000 ))" '[.[] | select(.type=="system/thread/interrupted" and .data.reason=="manual-stop" and .createdAt > $since)] | length')
-  [[ "$stopped" == 0 ]] || { echo "left $thread alone: user-stopped in the last 30 minutes"; continue; }
-  if [[ "$status" == idle ]]; then
-    bb thread tell "$thread" "Watchdog: this thread was idle with an empty queue while $ledger is running. Read that ledger and take the next transition per its skill; if it is terminal or paused, end the turn silently." --mode auto --json >/dev/null
-    echo "re-armed $thread"
-  elif [[ "$status" == error ]]; then
-    # One retry per stale failure: skip when a turn failed in the last 30 minutes.
-    recent=$(bb thread log "$thread" --format json --all | jq --argjson since "$(( $(date +%s%3N) - 1800000 ))" '[.[] | select(.type=="turn/completed" and .data.status=="failed" and .createdAt > $since)] | length')
-    if [[ "$recent" == 0 ]]; then bb thread retry "$thread" --json >/dev/null && echo "retried $thread"; else echo "ATTENTION $thread failed $recent turn(s) in the last 30 minutes"; fi
-  fi
-done
-EOF
-bb automation create --project "$BB_PROJECT_ID" --name "watchdog <run>" \
-  --cron '*/10 * * * *' --timezone Etc/UTC \
-  --script-file "$BB_THREAD_STORAGE/watchdog.sh" --interpreter bash \
-  --timeout 300000 \
-  --env-json "{\"STORAGE\":\"$(dirname "$BB_THREAD_STORAGE")\"}" --json
+bb thread tell "$BB_THREAD_ID" \
+  '[watchdog] read run.json and take the next transition. If a child is active, wait on it. If state is terminal or paused, or a manual-stop landed in the last 30 minutes, end the turn silently without re-queueing.' \
+  --mode queue --send-at 10m --json
 ```
 
-Pass `--timeout` explicitly. The default is 120000 ms and this script pages
-`bb thread log --all` once per candidate ledger, so a project with several runs
-overruns it and BB records a failed tick — a watchdog that stopped guarding
-without saying so. Keep it under the cron interval so a slow tick finishes
-before the next is due: 300000 ms against `*/10`. The plugin's 900000 ms
-ceiling is longer than that interval, so it is the wrong value here.
+Skip this tell when the continuation is already `--send-at` (CI or
+auto-resume): that row is the wake. Delete `[watchdog]` rows with the same
+`queue delete` loop as `[continuation]` rows so they never stack. Delete both
+when the run leaves `running`. The successor arms its own.
 
-Script and agent automations take disjoint flag sets; mixing them is rejected
-with "Script automations do not accept agent execution flags." `bb automation`
-comes from the `automations` plugin, not the core CLI — see this skill's
-Dependencies table for what a run does when it is missing.
+On wake, inspect this thread and its children with `bb thread show`,
+`bb thread list --parent-thread "$BB_THREAD_ID"`, and `bb status --json`
+(`.childThreads`). Wait any live child per Wait. Retry a child in `error`
+once. Leave a user-stopped thread alone for 30 minutes.
 
-The script prints nothing when every run is healthy, so BB records a silent
-tick. A relay needs no change: the script follows `relay.successor` from the
-ledgers, and ledgers without a relay field pass the check, so one automation
-covers every orchestration, landing, loop, and cleanup run of the project.
-Delete it when no run of the project is `running`.
+An orchestrator itself in `error` with a queued `[watchdog]` still needs
+`bb thread retry` from the sidebar; the queued row waits until then.
